@@ -1,0 +1,23 @@
+{
+  "name": "galaxy-trust-backend",
+  "version": "1.0.0",
+  "description": "Galaxy Educational and Social Welfare Trust - Backend API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "setup-db": "node setupDb.js",
+    "seed-admin": "node seedAdmin.js",
+    "create-logins": "node createMemberLogins.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.12.0",
+    "dotenv": "^16.4.5",
+    "cors": "^2.8.5",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.4.0"
+  }
+}

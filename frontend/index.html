@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#05060f" />
+    <meta name="description" content="Galaxy Educational and Social Welfare Trust — management portal" />
+    <link rel="icon" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Galaxy Trust" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Galaxy Trust</title>
+    <script>
+      // Apply theme before paint to avoid flash.
+      // Priority: user's saved choice -> device preference -> dark
+      (function () {
+        try {
+          var t = localStorage.getItem('galaxy_theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+          var fs = localStorage.getItem('galaxy_fontsize');
+          if (fs !== 'sm' && fs !== 'md' && fs !== 'lg') fs = 'md';
+          document.documentElement.setAttribute('data-fontsize', fs);
+          var lang = localStorage.getItem('galaxy_lang');
+          document.documentElement.setAttribute('lang', (lang === 'hi' ? 'hi' : 'en'));
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.setAttribute('data-fontsize', 'md');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
