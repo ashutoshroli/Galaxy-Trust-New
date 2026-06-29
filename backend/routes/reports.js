@@ -16,6 +16,9 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   const pendingInstallments = await pool.query(
     'SELECT COALESCE(SUM(total_amount - paid_amount),0) AS total FROM installments'
   );
+  const cashierIn = await pool.query("SELECT COALESCE(SUM(amount),0) AS total FROM cashier_allocations WHERE direction = 'in'");
+  const cashierOut = await pool.query("SELECT COALESCE(SUM(amount),0) AS total FROM cashier_allocations WHERE direction = 'out'");
+  const cashierCount = await pool.query('SELECT COUNT(*) AS total FROM cashiers');
 
   const totalIn = parseFloat(totalContrib.rows[0].total);
   const totalOut = parseFloat(totalExpense.rows[0].total) + parseFloat(totalStaffPaid.rows[0].total);
@@ -29,6 +32,9 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     total_members: parseInt(totalMembers.rows[0].total),
     total_meetings: parseInt(totalMeetings.rows[0].total),
     pending_installments: parseFloat(pendingInstallments.rows[0].total),
+    cashier_total_in: parseFloat(cashierIn.rows[0].total),
+    cashier_total_out: parseFloat(cashierOut.rows[0].total),
+    total_cashiers: parseInt(cashierCount.rows[0].total, 10),
   });
 }));
 
@@ -50,6 +56,30 @@ router.get('/fund-usage', asyncHandler(async (req, res) => {
   }
 
   res.json(rows);
+}));
+
+// Cashier report - per cashier in/out totals (for the Reports page)
+router.get('/cashiers', asyncHandler(async (req, res) => {
+  const result = await pool.query(`
+    SELECT m.id AS member_id, m.name, m.role,
+           COALESCE(SUM(ca.amount) FILTER (WHERE ca.direction = 'in'), 0) AS total_in,
+           COALESCE(SUM(ca.amount) FILTER (WHERE ca.direction = 'out'), 0) AS total_out
+    FROM cashiers c
+    JOIN members m ON c.member_id = m.id
+    LEFT JOIN cashier_allocations ca ON ca.cashier_member_id = m.id
+    GROUP BY m.id, m.name, m.role
+    ORDER BY m.name
+  `);
+  res.json(
+    result.rows.map((r) => ({
+      member_id: r.member_id,
+      name: r.name,
+      role: r.role,
+      total_in: parseFloat(r.total_in),
+      total_out: parseFloat(r.total_out),
+      balance: parseFloat(r.total_in) - parseFloat(r.total_out),
+    }))
+  );
 }));
 
 // Contribution report - per member totals
@@ -190,12 +220,85 @@ router.get('/member-detail/:memberId', asyncHandler(async (req, res) => {
     absent: Math.max(att.total_meetings - att.present, 0),
   };
 
+  // Which cashier(s) received this member's contributions (works for every member)
+  const gaveToCashiersRes = await pool.query(
+    `SELECT cm.id AS cashier_member_id, cm.name AS cashier_name,
+            COALESCE(SUM(ca.amount), 0) AS total, COUNT(ca.id) AS num
+     FROM contributions c
+     JOIN cashier_allocations ca ON ca.ref_type = 'contribution' AND ca.ref_id = c.id AND ca.direction = 'in'
+     JOIN members cm ON ca.cashier_member_id = cm.id
+     WHERE c.member_id = $1
+     GROUP BY cm.id, cm.name
+     ORDER BY total DESC`,
+    [memberId]
+  );
+  const gave_to_cashiers = gaveToCashiersRes.rows.map((r) => ({
+    cashier_member_id: r.cashier_member_id,
+    cashier_name: r.cashier_name,
+    total: parseFloat(r.total),
+    num: parseInt(r.num, 10),
+  }));
+
+  // Is this member a cashier? If so, build their collected/disbursed breakdowns.
+  const isCashierRes = await pool.query('SELECT 1 FROM cashiers WHERE member_id = $1', [memberId]);
+  const is_cashier = !!isCashierRes.rows[0];
+
+  let cashier_received_from = [];
+  let cashier_given_to = [];
+  if (is_cashier) {
+    const receivedFrom = await pool.query(
+      `SELECT gm.id AS member_id, gm.name AS member_name,
+              COALESCE(SUM(ca.amount), 0) AS total, COUNT(ca.id) AS num
+       FROM cashier_allocations ca
+       JOIN contributions c ON ca.ref_type = 'contribution' AND ca.ref_id = c.id
+       JOIN members gm ON c.member_id = gm.id
+       WHERE ca.cashier_member_id = $1 AND ca.direction = 'in'
+       GROUP BY gm.id, gm.name
+       ORDER BY total DESC`,
+      [memberId]
+    );
+    const givenExpenses = await pool.query(
+      `SELECT COALESCE(NULLIF(e.category, ''), 'Uncategorized') AS name,
+              COALESCE(SUM(ca.amount), 0) AS total, COUNT(ca.id) AS num
+       FROM cashier_allocations ca
+       JOIN expenses e ON ca.ref_type = 'expense' AND ca.ref_id = e.id
+       WHERE ca.cashier_member_id = $1 AND ca.direction = 'out'
+       GROUP BY COALESCE(NULLIF(e.category, ''), 'Uncategorized')
+       ORDER BY total DESC`,
+      [memberId]
+    );
+    const givenStaff = await pool.query(
+      `SELECT s.name AS name, COALESCE(SUM(ca.amount), 0) AS total, COUNT(ca.id) AS num
+       FROM cashier_allocations ca
+       JOIN staff_payments sp ON ca.ref_type = 'staff_payment' AND ca.ref_id = sp.id
+       JOIN staff s ON sp.staff_id = s.id
+       WHERE ca.cashier_member_id = $1 AND ca.direction = 'out'
+       GROUP BY s.name
+       ORDER BY total DESC`,
+      [memberId]
+    );
+    cashier_received_from = receivedFrom.rows.map((r) => ({
+      member_id: r.member_id,
+      member_name: r.member_name,
+      total: parseFloat(r.total),
+      num: parseInt(r.num, 10),
+    }));
+    cashier_given_to = [
+      ...givenExpenses.rows.map((r) => ({ kind: 'expense', name: r.name, total: parseFloat(r.total), num: parseInt(r.num, 10) })),
+      ...givenStaff.rows.map((r) => ({ kind: 'staff', name: r.name, total: parseFloat(r.total), num: parseInt(r.num, 10) })),
+    ].sort((a, b) => b.total - a.total);
+  }
+
   res.json({
     member,
     installments: installmentsResult.rows,
     contributions,
     total_given,
     attendance,
+    is_cashier,
+    gave_to_cashiers,
+    cashier_received_from,
+    cashier_given_to,
   });
 }));
 

@@ -277,6 +277,65 @@ export default function Members() {
                                 </tbody>
                               </table>
 
+                              {detail.gave_to_cashiers && detail.gave_to_cashiers.length > 0 && (
+                                <div style={{ marginTop: 14 }}>
+                                  <strong>👛 {t('cashier.gaveToCashiers')}</strong>
+                                  <table style={{ marginTop: 6 }}>
+                                    <thead><tr><th>{t('cashier.cashier')}</th><th>{t('field.amount')}</th></tr></thead>
+                                    <tbody>
+                                      {detail.gave_to_cashiers.map((g) => (
+                                        <tr key={g.cashier_member_id}>
+                                          <td>{g.cashier_name}</td>
+                                          <td style={{ color: '#059669', fontWeight: 600 }}>₹{Number(g.total).toLocaleString()}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+
+                              {detail.is_cashier && (
+                                <div style={{ marginTop: 14 }}>
+                                  <strong>👛 {t('cashier.asCashier')}</strong>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 6 }}>
+                                    <div>
+                                      <p className="muted" style={{ margin: '4px 0' }}>⬇️ {t('cashier.receivedFrom')}</p>
+                                      <table>
+                                        <thead><tr><th>{t('contrib.member')}</th><th>{t('field.amount')}</th></tr></thead>
+                                        <tbody>
+                                          {(!detail.cashier_received_from || detail.cashier_received_from.length === 0) && (
+                                            <tr><td colSpan={2} className="muted">{t('common.noRecords')}</td></tr>
+                                          )}
+                                          {(detail.cashier_received_from || []).map((r) => (
+                                            <tr key={r.member_id}>
+                                              <td>{r.member_name}</td>
+                                              <td style={{ color: '#059669' }}>₹{Number(r.total).toLocaleString()}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                    <div>
+                                      <p className="muted" style={{ margin: '4px 0' }}>⬆️ {t('cashier.givenTo')}</p>
+                                      <table>
+                                        <thead><tr><th>{t('field.details')}</th><th>{t('field.amount')}</th></tr></thead>
+                                        <tbody>
+                                          {(!detail.cashier_given_to || detail.cashier_given_to.length === 0) && (
+                                            <tr><td colSpan={2} className="muted">{t('common.noRecords')}</td></tr>
+                                          )}
+                                          {(detail.cashier_given_to || []).map((g, i) => (
+                                            <tr key={i}>
+                                              <td>{g.kind === 'staff' ? '👨‍🔧 ' : '🧾 '}{g.name}</td>
+                                              <td style={{ color: '#dc2626' }}>₹{Number(g.total).toLocaleString()}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               {detail.attendance && detail.attendance.total_meetings > 0 && (
                                 <div style={{ marginTop: 8 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>

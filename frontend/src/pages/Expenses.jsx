@@ -4,6 +4,7 @@ import { canAdd, canEdit, canDelete, canEditDelete } from '../permissions.js';
 import { useToast } from '../components/Toast.jsx';
 import { useI18n } from '../i18n.js';
 import Modal from '../components/Modal.jsx';
+import CashierSplit from '../components/CashierSplit.jsx';
 
 const inr = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
 
@@ -30,18 +31,28 @@ export default function Expenses() {
   const [dateTo, setDateTo] = useState('');
   const [staffSearch, setStaffSearch] = useState('');
 
+  const [cashierList, setCashierList] = useState([]);
+  const [expCashierAlloc, setExpCashierAlloc] = useState([]);
+  const [staffCashierAlloc, setStaffCashierAlloc] = useState([]);
+  const [editExpCashierAlloc, setEditExpCashierAlloc] = useState([]);
+  const [editExpCashierInit, setEditExpCashierInit] = useState([]);
+  const [resetKey, setResetKey] = useState(0);
+
   function load() {
     apiCall('/expenses').then(setList).catch((e) => setError(e.message)).finally(() => setLoading(false));
     apiCall('/reports/dashboard').then(setFundInfo).catch(() => {});
     apiCall('/staff').then(setStaffList).catch(() => {});
+    apiCall('/cashiers').then(setCashierList).catch(() => {});
   }
   useEffect(load, []);
 
   async function handleAdd(e) {
     e.preventDefault();
     try {
-      await apiCall('/expenses', { method: 'POST', body: JSON.stringify(form) });
+      await apiCall('/expenses', { method: 'POST', body: JSON.stringify({ ...form, cashiers: expCashierAlloc }) });
       setForm({ amount: '', expense_date: '', category: '', description: '', used_for: '' });
+      setExpCashierAlloc([]);
+      setResetKey((k) => k + 1);
       setShowForm(false);
       setError('');
       toast.success(t('exp.title'));
@@ -59,9 +70,11 @@ export default function Expenses() {
     try {
       await apiCall(`/staff/${staffPayForm.staff_id}/payments`, {
         method: 'POST',
-        body: JSON.stringify({ amount: staffPayForm.amount, payment_date: staffPayForm.payment_date, remarks: staffPayForm.remarks }),
+        body: JSON.stringify({ amount: staffPayForm.amount, payment_date: staffPayForm.payment_date, remarks: staffPayForm.remarks, cashiers: staffCashierAlloc }),
       });
       setStaffPayForm({ staff_id: '', amount: '', payment_date: '', remarks: '' });
+      setStaffCashierAlloc([]);
+      setResetKey((k) => k + 1);
       setShowStaffForm(false);
       setError('');
       toast.success(t('exp.addStaffPayment'));
@@ -92,11 +105,14 @@ export default function Expenses() {
       description: exp.description || '',
       used_for: exp.used_for || '',
     });
+    const init = (exp.cashiers || []).map((x) => ({ member_id: x.member_id, amount: x.amount }));
+    setEditExpCashierInit(init);
+    setEditExpCashierAlloc(init);
   }
 
   async function saveEdit(id) {
     try {
-      await apiCall(`/expenses/${id}`, { method: 'PUT', body: JSON.stringify(editForm) });
+      await apiCall(`/expenses/${id}`, { method: 'PUT', body: JSON.stringify({ ...editForm, cashiers: editExpCashierAlloc }) });
       setEditId(null);
       load();
     } catch (err) {
@@ -159,6 +175,7 @@ export default function Expenses() {
           <input placeholder={t('field.category')} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           <input placeholder={t('field.usedFor')} value={form.used_for} onChange={(e) => setForm({ ...form, used_for: e.target.value })} />
           <textarea placeholder={t('field.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <CashierSplit key={`exp-add-${resetKey}`} cashiers={cashierList} total={parseFloat(form.amount) || 0} onChange={setExpCashierAlloc} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit">{t('common.save')}</button>
             <button type="button" className="print-btn" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
@@ -177,6 +194,7 @@ export default function Expenses() {
           <input type="number" step="0.01" placeholder={t('field.amount')} value={staffPayForm.amount} onChange={(e) => setStaffPayForm({ ...staffPayForm, amount: e.target.value })} required />
           <input type="date" value={staffPayForm.payment_date} onChange={(e) => setStaffPayForm({ ...staffPayForm, payment_date: e.target.value })} />
           <textarea placeholder={t('field.remarks')} value={staffPayForm.remarks} onChange={(e) => setStaffPayForm({ ...staffPayForm, remarks: e.target.value })} />
+          <CashierSplit key={`staff-pay-${resetKey}`} cashiers={cashierList} total={parseFloat(staffPayForm.amount) || 0} onChange={setStaffCashierAlloc} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit">{t('common.save')}</button>
             <button type="button" className="print-btn" onClick={() => setShowStaffForm(false)}>{t('common.cancel')}</button>
@@ -191,6 +209,7 @@ export default function Expenses() {
           <input placeholder={t('field.category')} value={editForm.category} onChange={(ev) => setEditForm({ ...editForm, category: ev.target.value })} />
           <input placeholder={t('field.usedFor')} value={editForm.used_for} onChange={(ev) => setEditForm({ ...editForm, used_for: ev.target.value })} />
           <textarea placeholder={t('field.description')} value={editForm.description} onChange={(ev) => setEditForm({ ...editForm, description: ev.target.value })} />
+          <CashierSplit key={`exp-edit-${editId}`} cashiers={cashierList} total={parseFloat(editForm.amount) || 0} initial={editExpCashierInit} onChange={setEditExpCashierAlloc} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit">{t('common.saveChanges')}</button>
             <button type="button" className="print-btn" onClick={() => setEditId(null)}>{t('common.cancel')}</button>

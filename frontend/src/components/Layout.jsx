@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/installments', key: 'nav.installments', icon: '🪐' },
   { to: '/meetings', key: 'nav.meetings', icon: '📡' },
   { to: '/reports', key: 'nav.reports', icon: '📊' },
+  { to: '/cashier', key: 'nav.cashier', icon: '👛', superadminOnly: true },
   { to: '/permissions', key: 'nav.permissions', icon: '🛡️', superadminOnly: true },
   { to: '/profile', key: 'nav.profile', icon: '⚙️' },
 ];

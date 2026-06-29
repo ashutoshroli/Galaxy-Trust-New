@@ -4,6 +4,7 @@ import { canAdd, canEdit, canDelete, canEditDelete } from '../permissions.js';
 import { printHTML } from '../printHelper.js';
 import { useI18n } from '../i18n.js';
 import Modal from '../components/Modal.jsx';
+import CashierSplit, { splitRowByCashiers } from '../components/CashierSplit.jsx';
 
 const MODES = ['cash', 'online', 'cheque'];
 
@@ -33,11 +34,20 @@ export default function Contributions() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  const [cashierList, setCashierList] = useState([]);
+  const [cashierAlloc, setCashierAlloc] = useState([]);
+  const [addResetKey, setAddResetKey] = useState(0);
+  const [editCashierAlloc, setEditCashierAlloc] = useState([]);
+  const [editCashierInit, setEditCashierInit] = useState([]);
+
   function load() {
     apiCall('/contributions').then(setList).catch((e) => setError(e.message)).finally(() => setLoading(false));
     apiCall('/contributions/pending-members').then(setPendingMembers).catch(() => {});
+    apiCall('/cashiers').then(setCashierList).catch(() => {});
   }
   useEffect(load, []);
+
+  const grandTotal = Object.values(installmentAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0);
 
   const selectedMember = pendingMembers.find((m) => String(m.member_id) === String(selectedMemberId));
 
@@ -55,6 +65,7 @@ export default function Contributions() {
     try {
       const savedReceiptItems = [];
       for (const [installmentId, amt] of entries) {
+        const rowCashiers = splitRowByCashiers(parseFloat(amt), cashierAlloc, grandTotal);
         await apiCall('/contributions', {
           method: 'POST',
           body: JSON.stringify({
@@ -64,6 +75,7 @@ export default function Contributions() {
             contribution_date: sharedFields.contribution_date,
             mode: sharedFields.mode,
             remarks: sharedFields.remarks,
+            cashiers: rowCashiers,
           }),
         });
         savedReceiptItems.push({ installment_id: installmentId, amount: amt });
@@ -78,6 +90,8 @@ export default function Contributions() {
       setSelectedMemberId('');
       setInstallmentAmounts({});
       setSharedFields({ contribution_date: '', mode: 'cash', remarks: '' });
+      setCashierAlloc([]);
+      setAddResetKey((k) => k + 1);
       setShowForm(false);
       setError('');
       load();
@@ -105,11 +119,14 @@ export default function Contributions() {
       mode: c.mode || 'cash',
       remarks: c.remarks || '',
     });
+    const init = (c.cashiers || []).map((x) => ({ member_id: x.member_id, amount: x.amount }));
+    setEditCashierInit(init);
+    setEditCashierAlloc(init);
   }
 
   async function saveEdit(id) {
     try {
-      await apiCall(`/contributions/${id}`, { method: 'PUT', body: JSON.stringify(editForm) });
+      await apiCall(`/contributions/${id}`, { method: 'PUT', body: JSON.stringify({ ...editForm, cashiers: editCashierAlloc }) });
       setEditId(null);
       load();
     } catch (err) {
@@ -246,6 +263,13 @@ export default function Contributions() {
           <ModeSelect value={sharedFields.mode} onChange={(e) => setSharedFields({ ...sharedFields, mode: e.target.value })} />
           <textarea placeholder={t('field.remarks')} value={sharedFields.remarks} onChange={(e) => setSharedFields({ ...sharedFields, remarks: e.target.value })} />
 
+          <CashierSplit
+            key={`add-${selectedMemberId}-${addResetKey}`}
+            cashiers={cashierList}
+            total={grandTotal}
+            onChange={setCashierAlloc}
+          />
+
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit">{t('contrib.savePayment')}</button>
             <button type="button" className="print-btn" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
@@ -259,6 +283,13 @@ export default function Contributions() {
           <input type="date" value={editForm.contribution_date} onChange={(e) => setEditForm({ ...editForm, contribution_date: e.target.value })} />
           <ModeSelect value={editForm.mode} onChange={(e) => setEditForm({ ...editForm, mode: e.target.value })} />
           <textarea placeholder={t('field.remarks')} value={editForm.remarks} onChange={(e) => setEditForm({ ...editForm, remarks: e.target.value })} />
+          <CashierSplit
+            key={`edit-${editId}`}
+            cashiers={cashierList}
+            total={parseFloat(editForm.amount) || 0}
+            initial={editCashierInit}
+            onChange={setEditCashierAlloc}
+          />
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit">{t('common.saveChanges')}</button>
             <button type="button" className="print-btn" onClick={() => setEditId(null)}>{t('common.cancel')}</button>

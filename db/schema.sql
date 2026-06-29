@@ -152,6 +152,26 @@ CREATE TABLE IF NOT EXISTS feed_post_images (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Cashiers: members designated to handle money moving IN/OUT
+CREATE TABLE IF NOT EXISTS cashiers (
+    id SERIAL PRIMARY KEY,
+    member_id INTEGER NOT NULL UNIQUE REFERENCES members(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Per-transaction cashier allocations (polymorphic).
+-- ref_type + ref_id point to a contribution / expense / staff_payment row.
+-- direction: 'in' = collected (contributions), 'out' = disbursed (expenses / staff payments)
+CREATE TABLE IF NOT EXISTS cashier_allocations (
+    id SERIAL PRIMARY KEY,
+    ref_type VARCHAR(20) NOT NULL CHECK (ref_type IN ('contribution','expense','staff_payment')),
+    ref_id INTEGER NOT NULL,
+    cashier_member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    direction VARCHAR(3) NOT NULL CHECK (direction IN ('in','out')),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Allow the expanded set of login roles on existing databases too
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check
@@ -176,6 +196,9 @@ CREATE INDEX IF NOT EXISTS idx_feed_tags_post ON feed_post_tags(post_id);
 CREATE INDEX IF NOT EXISTS idx_feed_reactions_post ON feed_reactions(post_id);
 CREATE INDEX IF NOT EXISTS idx_feed_comments_post ON feed_comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_feed_images_post ON feed_post_images(post_id);
+CREATE INDEX IF NOT EXISTS idx_cashier_alloc_ref ON cashier_allocations(ref_type, ref_id);
+CREATE INDEX IF NOT EXISTS idx_cashier_alloc_cashier ON cashier_allocations(cashier_member_id);
+CREATE INDEX IF NOT EXISTS idx_cashier_alloc_direction ON cashier_allocations(direction);
 
 -- Add FK constraint now that both tables exist
 ALTER TABLE contributions

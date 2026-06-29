@@ -65,6 +65,8 @@ export default function Dashboard() {
         <StatBox label={t('dash.members')} value={stats.total_members} icon="🧑‍🚀" />
         <StatBox label={t('dash.meetings')} value={stats.total_meetings} icon="📡" />
         <StatBox label={t('dash.pending')} value={inr(stats.pending_installments)} icon="⏳" />
+        <StatBox label={t('dash.cashierIn')} value={inr(stats.cashier_total_in ?? 0)} icon="👛" color="var(--success)" />
+        <StatBox label={t('dash.cashierOut')} value={inr(stats.cashier_total_out ?? 0)} icon="💸" color="var(--danger)" />
       </div>
 
       {fundUsage.length > 0 && (

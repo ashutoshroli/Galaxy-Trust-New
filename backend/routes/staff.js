@@ -2,6 +2,7 @@ import express from 'express';
 import { pool } from '../db.js';
 import { authenticate, canAdd, canEdit, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
+import { replaceAllocations, deleteAllocations, getAllocationsMap } from '../utils/cashierAllocations.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -31,7 +32,11 @@ router.get(
       'SELECT * FROM staff_payments WHERE staff_id=$1 ORDER BY payment_date DESC, id DESC',
       [req.params.id]
     );
-    res.json({ ...staffResult.rows[0], payments: payments.rows });
+    const allocMap = await getAllocationsMap(pool, 'staff_payment', payments.rows.map((p) => p.id));
+    res.json({
+      ...staffResult.rows[0],
+      payments: payments.rows.map((p) => ({ ...p, cashiers: allocMap[p.id] || [] })),
+    });
   })
 );
 
@@ -67,6 +72,14 @@ router.delete(
   '/:id',
   onlySuperAdmin,
   asyncHandler(async (req, res) => {
+    // Remove cashier allocations tied to this staff's payments before the
+    // cascade delete removes the payment rows.
+    await pool.query(
+      `DELETE FROM cashier_allocations
+       WHERE ref_type = 'staff_payment'
+         AND ref_id IN (SELECT id FROM staff_payments WHERE staff_id = $1)`,
+      [req.params.id]
+    );
     await pool.query('DELETE FROM staff WHERE id=$1', [req.params.id]);
     res.json({ message: 'Deleted' });
   })
@@ -89,7 +102,7 @@ router.post(
   '/:id/payments',
   canAdd,
   asyncHandler(async (req, res) => {
-    const { amount, payment_date, remarks } = req.body;
+    const { amount, payment_date, remarks, cashiers } = req.body;
     if (!amount) return badRequest(res, 'amount required');
     const safeDate = payment_date && payment_date.trim() !== '' ? payment_date : null;
     const result = await pool.query(
@@ -97,6 +110,7 @@ router.post(
        VALUES ($1,$2,COALESCE($3, CURRENT_DATE),$4,$5) RETURNING *`,
       [req.params.id, amount, safeDate, remarks, req.user.id]
     );
+    await replaceAllocations(pool, 'staff_payment', result.rows[0].id, 'out', cashiers);
     res.status(201).json(result.rows[0]);
   })
 );
@@ -105,7 +119,7 @@ router.put(
   '/payments/:paymentId',
   canEdit,
   asyncHandler(async (req, res) => {
-    const { amount, payment_date, remarks } = req.body;
+    const { amount, payment_date, remarks, cashiers } = req.body;
     const safeDate = payment_date && payment_date.trim() !== '' ? payment_date : null;
     const result = await pool.query(
       `UPDATE staff_payments SET amount=$1, payment_date=COALESCE($2, payment_date), remarks=$3
@@ -113,6 +127,9 @@ router.put(
       [amount, safeDate, remarks, req.params.paymentId]
     );
     if (!result.rows[0]) return notFound(res);
+    if (cashiers !== undefined) {
+      await replaceAllocations(pool, 'staff_payment', req.params.paymentId, 'out', cashiers);
+    }
     res.json(result.rows[0]);
   })
 );
@@ -122,6 +139,7 @@ router.delete(
   onlySuperAdmin,
   asyncHandler(async (req, res) => {
     await pool.query('DELETE FROM staff_payments WHERE id=$1', [req.params.paymentId]);
+    await deleteAllocations(pool, 'staff_payment', req.params.paymentId);
     res.json({ message: 'Deleted' });
   })
 );

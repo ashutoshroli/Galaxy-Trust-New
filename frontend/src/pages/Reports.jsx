@@ -8,6 +8,7 @@ export default function Reports() {
   const [ledgerRaw, setLedgerRaw] = useState([]);
   const [installmentsRaw, setInstallmentsRaw] = useState([]);
   const [expensesRaw, setExpensesRaw] = useState([]);
+  const [cashiersRaw, setCashiersRaw] = useState([]);
   const [expandedMember, setExpandedMember] = useState(null);
   const [error, setError] = useState('');
 
@@ -23,6 +24,7 @@ export default function Reports() {
     contrib: false,
     expense: false,
     due: false,
+    cashiers: false,
   });
   const [openTypes, setOpenTypes] = useState({});
 
@@ -30,6 +32,7 @@ export default function Reports() {
     apiCall('/reports/member-balance-ledger').then(setLedgerRaw).catch((e) => setError(e.message));
     apiCall('/installments').then(setInstallmentsRaw).catch((e) => setError(e.message));
     apiCall('/expenses').then(setExpensesRaw).catch(() => {});
+    apiCall('/reports/cashiers').then(setCashiersRaw).catch(() => {});
   }, []);
 
   function toggleSection(key) {
@@ -179,6 +182,14 @@ export default function Reports() {
     printHTML(t('rep.pendingInstallments'), `
       <h3>${t('rep.pendingInstallments')}${rangeNote}</h3>
       <table><thead><tr><th>${t('contrib.member')}</th><th>${t('field.total')}</th><th>${t('field.paid')}</th><th>${t('field.balance')}</th><th>${t('field.dueDate')}</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
+  }
+
+  function printCashiers() {
+    const rows = cashiersRaw.map((c) => `<tr><td>${c.name}</td><td>₹${c.total_in.toLocaleString()}</td><td>₹${c.total_out.toLocaleString()}</td><td>₹${c.balance.toLocaleString()}</td></tr>`).join('');
+    printHTML(t('cashier.report'), `
+      <h3>${t('cashier.report')}${rangeNote}</h3>
+      <table><thead><tr><th>${t('cashier.cashier')}</th><th>${t('cashier.totalIn')}</th><th>${t('cashier.totalOut')}</th><th>${t('field.balance')}</th></tr></thead>
       <tbody>${rows}</tbody></table>`);
   }
 
@@ -358,6 +369,27 @@ export default function Reports() {
                   <td>{e.category}</td>
                   <td>₹{e.total_amount.toLocaleString()}</td>
                   <td>{e.num_entries}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Cashier Report */}
+      <div className="card">
+        <SectionHeader title={t('cashier.report')} sectionKey="cashiers" onPrint={printCashiers} />
+        {open.cashiers && (
+          <table>
+            <thead><tr><th>{t('cashier.cashier')}</th><th>{t('cashier.totalIn')}</th><th>{t('cashier.totalOut')}</th><th>{t('field.balance')}</th></tr></thead>
+            <tbody>
+              {cashiersRaw.length === 0 && <tr><td colSpan={4} className="muted">{t('cashier.noneYet')}</td></tr>}
+              {cashiersRaw.map((c) => (
+                <tr key={c.member_id}>
+                  <td>{c.name}</td>
+                  <td style={{ color: '#059669', fontWeight: 600 }}>₹{c.total_in.toLocaleString()}</td>
+                  <td style={{ color: '#dc2626', fontWeight: 600 }}>₹{c.total_out.toLocaleString()}</td>
+                  <td style={{ fontWeight: 600 }}>₹{c.balance.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

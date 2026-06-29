@@ -3,6 +3,7 @@ import { apiCall } from '../api.js';
 import { canAdd, canEdit, canDelete, canEditDelete } from '../permissions.js';
 import { useI18n } from '../i18n.js';
 import Modal from '../components/Modal.jsx';
+import CashierSplit from '../components/CashierSplit.jsx';
 
 export default function Staff() {
   const { t } = useI18n();
@@ -20,8 +21,13 @@ export default function Staff() {
   const [payForm, setPayForm] = useState({ amount: '', payment_date: '', remarks: '' });
   const [search, setSearch] = useState('');
 
+  const [cashierList, setCashierList] = useState([]);
+  const [payCashierAlloc, setPayCashierAlloc] = useState([]);
+  const [payResetKey, setPayResetKey] = useState(0);
+
   function load() {
     apiCall('/staff').then(setList).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    apiCall('/cashiers').then(setCashierList).catch(() => {});
   }
   useEffect(load, []);
 
@@ -81,10 +87,12 @@ export default function Staff() {
   async function addPayment(staffId) {
     if (!payForm.amount || parseFloat(payForm.amount) <= 0) return setError(t('field.amount'));
     try {
-      await apiCall(`/staff/${staffId}/payments`, { method: 'POST', body: JSON.stringify(payForm) });
+      await apiCall(`/staff/${staffId}/payments`, { method: 'POST', body: JSON.stringify({ ...payForm, cashiers: payCashierAlloc }) });
       const d = await apiCall(`/staff/${staffId}`);
       setDetail(d);
       setPayForm({ amount: '', payment_date: '', remarks: '' });
+      setPayCashierAlloc([]);
+      setPayResetKey((k) => k + 1);
       setError('');
       load();
     } catch (err) {
@@ -183,11 +191,14 @@ export default function Staff() {
                           <strong>{detail.name} — {t('staff.paymentHistory')}</strong>
 
                           {canAdd() && (
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '10px 0', flexWrap: 'wrap' }}>
-                              <input type="number" step="0.01" placeholder={t('field.amount')} style={{ width: 130, margin: 0 }} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
-                              <input type="date" style={{ width: 160, margin: 0 }} value={payForm.payment_date} onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })} />
-                              <input placeholder={t('field.remarks')} style={{ width: 180, margin: 0 }} value={payForm.remarks} onChange={(e) => setPayForm({ ...payForm, remarks: e.target.value })} />
-                              <button onClick={() => addPayment(s.id)}>{t('staff.addPayment')}</button>
+                            <div style={{ margin: '10px 0' }}>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+                                <input type="number" step="0.01" placeholder={t('field.amount')} style={{ width: 130, margin: 0 }} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+                                <input type="date" style={{ width: 160, margin: 0 }} value={payForm.payment_date} onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })} />
+                                <input placeholder={t('field.remarks')} style={{ width: 180, margin: 0 }} value={payForm.remarks} onChange={(e) => setPayForm({ ...payForm, remarks: e.target.value })} />
+                                <button onClick={() => addPayment(s.id)}>{t('staff.addPayment')}</button>
+                              </div>
+                              <CashierSplit key={`staff-${s.id}-${payResetKey}`} cashiers={cashierList} total={parseFloat(payForm.amount) || 0} onChange={setPayCashierAlloc} compact />
                             </div>
                           )}
 

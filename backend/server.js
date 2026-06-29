@@ -14,6 +14,7 @@ import reportsRoutes from './routes/reports.js';
 import staffRoutes from './routes/staff.js';
 import feedRoutes from './routes/feed.js';
 import permissionsRoutes from './routes/permissions.js';
+import cashiersRoutes from './routes/cashiers.js';
 import { pool } from './db.js';
 import { logger } from './utils/logger.js';
 
@@ -98,6 +99,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/permissions', permissionsRoutes);
+app.use('/api/cashiers', cashiersRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {

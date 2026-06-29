@@ -2,6 +2,7 @@ import express from 'express';
 import { pool } from '../db.js';
 import { authenticate, canAdd, canEdit, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
+import { replaceAllocations, deleteAllocations, getAllocationsMap } from '../utils/cashierAllocations.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -12,7 +13,8 @@ router.get('/', asyncHandler(async (req, res) => {
     FROM contributions c JOIN members m ON c.member_id = m.id
     ORDER BY c.contribution_date DESC, c.id DESC
   `);
-    res.json(result.rows);
+    const allocMap = await getAllocationsMap(pool, 'contribution', result.rows.map((r) => r.id));
+    res.json(result.rows.map((r) => ({ ...r, cashiers: allocMap[r.id] || [] })));
   }));
 
 router.get('/member/:memberId', asyncHandler(async (req, res) => {
@@ -56,7 +58,7 @@ router.get('/pending-members', asyncHandler(async (req, res) => {
 // specific installment (not all of the member's installments), and amount cannot
 // exceed that installment's remaining balance.
 router.post('/', canAdd, async (req, res) => {
-  const { member_id, amount, contribution_date, mode, remarks, installment_id } = req.body;
+  const { member_id, amount, contribution_date, mode, remarks, installment_id, cashiers } = req.body;
   if (!member_id || !amount) return res.status(400).json({ error: 'member_id and amount required' });
   const safeDate = contribution_date && contribution_date.trim() !== '' ? contribution_date : null;
   const paidAmount = parseFloat(amount);
@@ -94,6 +96,8 @@ router.post('/', canAdd, async (req, res) => {
       );
     }
 
+    await replaceAllocations(client, 'contribution', result.rows[0].id, 'in', cashiers);
+
     await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -106,7 +110,7 @@ router.post('/', canAdd, async (req, res) => {
 });
 
 router.put('/:id', canEdit, async (req, res) => {
-  const { amount, contribution_date, mode, remarks } = req.body;
+  const { amount, contribution_date, mode, remarks, cashiers } = req.body;
   const safeDate = contribution_date && contribution_date.trim() !== '' ? contribution_date : null;
   const newAmount = parseFloat(amount);
 
@@ -135,6 +139,10 @@ router.put('/:id', canEdit, async (req, res) => {
        WHERE id=$5 RETURNING *`,
       [newAmount, safeDate, mode, remarks, req.params.id]
     );
+
+    if (cashiers !== undefined) {
+      await replaceAllocations(client, 'contribution', req.params.id, 'in', cashiers);
+    }
 
     await client.query('COMMIT');
     res.json(result.rows[0]);
@@ -167,6 +175,7 @@ router.delete('/:id', onlySuperAdmin, async (req, res) => {
     }
 
     await client.query('DELETE FROM contributions WHERE id=$1', [req.params.id]);
+    await deleteAllocations(client, 'contribution', req.params.id);
     await client.query('COMMIT');
     res.json({ message: 'Deleted' });
   } catch (err) {
