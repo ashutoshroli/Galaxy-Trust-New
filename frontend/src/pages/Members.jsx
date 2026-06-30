@@ -3,35 +3,12 @@ import { apiCall } from '../api.js';
 import { canAdd, canEdit, canDelete, canEditDelete, isSuperAdmin } from '../permissions.js';
 import { printHTML } from '../printHelper.js';
 import { downloadCSV } from '../utils/csv.js';
+import PhotoPicker from '../components/PhotoPicker.jsx';
 import { useI18n } from '../i18n.js';
 import Modal from '../components/Modal.jsx';
 
 const ROLE_OPTIONS = ['trustee', 'president', 'secretary', 'treasurer'];
 const TRUST_NAME = 'Galaxy Educational and Social Welfare Trust';
-
-// Resize + compress an image file to a base64 data URL (for member photo).
-function resizeImage(file, maxW = 400, quality = 0.8) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxW / img.width);
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 const EMPTY_FORM = { name: '', relation_name: '', role: 'trustee', address: '', phone: '', email: '', dob: '', photo: '' };
 
@@ -120,19 +97,6 @@ export default function Members() {
       setError(err.message);
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function pickPhoto(e, current, setter) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return setError(t('members.imageOnly'));
-    try {
-      const dataUrl = await resizeImage(file);
-      setter({ ...current, photo: dataUrl });
-    } catch {
-      setError(t('members.imageError'));
     }
   }
 
@@ -282,14 +246,7 @@ export default function Members() {
           <input type="email" placeholder={t('field.email')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <label className="muted" style={{ fontSize: 13 }}>{t('members.dob')}</label>
           <input type="date" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
-          <div className="actions-row" style={{ alignItems: 'center' }}>
-            {form.photo && <img src={form.photo} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8 }} />}
-            <label className="print-btn" style={{ cursor: 'pointer', margin: 0 }}>
-              📷 {t('members.photo')}
-              <input type="file" accept="image/*" onChange={(e) => pickPhoto(e, form, setForm)} style={{ display: 'none' }} />
-            </label>
-            {form.photo && <button type="button" className="print-btn" onClick={() => setForm({ ...form, photo: '' })}>{t('common.delete')}</button>}
-          </div>
+          <PhotoPicker value={form.photo} onChange={(p) => setForm({ ...form, photo: p })} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit" disabled={saving}>{saving ? t('common.loading') : t('common.save')}</button>
             <button type="button" className="print-btn" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
@@ -307,14 +264,7 @@ export default function Members() {
           <input type="email" placeholder={t('field.email')} value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
           <label className="muted" style={{ fontSize: 13 }}>{t('members.dob')}</label>
           <input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} />
-          <div className="actions-row" style={{ alignItems: 'center' }}>
-            {editForm.photo && <img src={editForm.photo} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8 }} />}
-            <label className="print-btn" style={{ cursor: 'pointer', margin: 0 }}>
-              📷 {t('members.photo')}
-              <input type="file" accept="image/*" onChange={(e) => pickPhoto(e, editForm, setEditForm)} style={{ display: 'none' }} />
-            </label>
-            {editForm.photo && <button type="button" className="print-btn" onClick={() => setEditForm({ ...editForm, photo: '' })}>{t('common.delete')}</button>}
-          </div>
+          <PhotoPicker value={editForm.photo} onChange={(p) => setEditForm({ ...editForm, photo: p })} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit" disabled={saving}>{saving ? t('common.loading') : t('common.saveChanges')}</button>
             <button type="button" className="print-btn" onClick={() => setEditId(null)}>{t('common.cancel')}</button>

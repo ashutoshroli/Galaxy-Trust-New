@@ -172,6 +172,14 @@ CREATE TABLE IF NOT EXISTS announcements (
 );
 CREATE INDEX IF NOT EXISTS idx_announcements_created ON announcements(created_at);
 
+-- Sidebar page permissions per role (missing row = visible by default)
+CREATE TABLE IF NOT EXISTS nav_permissions (
+    role VARCHAR(20) NOT NULL,
+    page_key VARCHAR(40) NOT NULL,
+    visible BOOLEAN NOT NULL DEFAULT true,
+    PRIMARY KEY (role, page_key)
+);
+
 -- Cashiers: members designated to handle money moving IN/OUT
 CREATE TABLE IF NOT EXISTS cashiers (
     id SERIAL PRIMARY KEY,

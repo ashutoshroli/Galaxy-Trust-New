@@ -1,25 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { getUser, logout as apiLogout } from '../api.js';
+import { apiCall, getUser, logout as apiLogout } from '../api.js';
 import { getActiveTheme, setTheme, getActiveFontSize, setFontSize, FONT_SIZES } from '../theme.js';
 import { useI18n } from '../i18n.js';
 
 const NAV_ITEMS = [
-  { to: '/', key: 'nav.dashboard', icon: '🌌', end: true },
-  { to: '/search', key: 'nav.search', icon: '🔍' },
-  { to: '/feed', key: 'nav.feed', icon: '📣' },
-  { to: '/announcements', key: 'nav.announcements', icon: '📢' },
-  { to: '/members', key: 'nav.members', icon: '🧑‍🚀' },
-  { to: '/contributions', key: 'nav.contributions', icon: '💫' },
-  { to: '/expenses', key: 'nav.expenses', icon: '🛰️' },
-  { to: '/staff', key: 'nav.staff', icon: '👨‍🔧' },
-  { to: '/installments', key: 'nav.installments', icon: '🪐' },
-  { to: '/meetings', key: 'nav.meetings', icon: '📡' },
-  { to: '/reports', key: 'nav.reports', icon: '📊' },
-  { to: '/cashier', key: 'nav.cashier', icon: '👛', superadminOnly: true },
-  { to: '/activity', key: 'nav.activity', icon: '🛡️', superadminOnly: true },
-  { to: '/permissions', key: 'nav.permissions', icon: '🔐', superadminOnly: true },
-  { to: '/profile', key: 'nav.profile', icon: '⚙️' },
+  { to: '/', id: 'dashboard', key: 'nav.dashboard', icon: '🌌', end: true },
+  { to: '/search', id: 'search', key: 'nav.search', icon: '🔍' },
+  { to: '/feed', id: 'feed', key: 'nav.feed', icon: '📣' },
+  { to: '/announcements', id: 'announcements', key: 'nav.announcements', icon: '📢' },
+  { to: '/members', id: 'members', key: 'nav.members', icon: '🧑‍🚀' },
+  { to: '/contributions', id: 'contributions', key: 'nav.contributions', icon: '💫' },
+  { to: '/expenses', id: 'expenses', key: 'nav.expenses', icon: '🛰️' },
+  { to: '/staff', id: 'staff', key: 'nav.staff', icon: '👨‍🔧' },
+  { to: '/installments', id: 'installments', key: 'nav.installments', icon: '🪐' },
+  { to: '/meetings', id: 'meetings', key: 'nav.meetings', icon: '📡' },
+  { to: '/reports', id: 'reports', key: 'nav.reports', icon: '📊' },
+  { to: '/cashier', id: 'cashier', key: 'nav.cashier', icon: '👛', superadminOnly: true },
+  { to: '/activity', id: 'activity', key: 'nav.activity', icon: '🛡️', superadminOnly: true },
+  { to: '/permissions', id: 'permissions', key: 'nav.permissions', icon: '🔐', superadminOnly: true },
+  { to: '/sidebar-permissions', id: 'sidebarPerms', key: 'nav.sidebarPerms', icon: '🧭', superadminOnly: true },
+  { to: '/profile', id: 'profile', key: 'nav.profile', icon: '⚙️' },
 ];
 
 export default function Layout({ children }) {
@@ -29,6 +30,11 @@ export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setThemeState] = useState(getActiveTheme());
   const [fontSize, setFontSizeState] = useState(getActiveFontSize());
+  const [allowed, setAllowed] = useState(null);
+
+  useEffect(() => {
+    apiCall('/nav-permissions/mine').then((d) => setAllowed(d.allowed)).catch(() => setAllowed(null));
+  }, []);
 
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -61,7 +67,12 @@ export default function Layout({ children }) {
           <span className="brand-logo" aria-hidden="true" />
           {t('app.brand')}
         </h2>
-        {NAV_ITEMS.filter((item) => !item.superadminOnly || user?.role === 'superadmin').map((item) => (
+        {NAV_ITEMS.filter((item) => {
+          if (item.superadminOnly) return user?.role === 'superadmin';
+          if (user?.role === 'superadmin') return true;
+          if (!allowed) return true; // fail-open while loading or on error
+          return allowed.includes(item.id);
+        }).map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setMenuOpen(false)}>
             <span className="nav-icon" aria-hidden="true">{item.icon}</span>
             {t(item.key)}

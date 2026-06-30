@@ -2,30 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiCall, getUser } from '../api.js';
 import { useI18n } from '../i18n.js';
 import { useToast } from '../components/Toast.jsx';
-
-// Resize + compress an image file to a base64 data URL (for member photo).
-function resizeImage(file, maxW = 400, quality = 0.8) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxW / img.width);
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+import PhotoPicker from '../components/PhotoPicker.jsx';
 
 export default function Profile() {
   const { t } = useI18n();
@@ -135,16 +112,7 @@ export default function Profile() {
         <div className="card" style={{ maxWidth: 480 }}>
           <h3>{t('profile.personalDetails')}</h3>
           <form onSubmit={saveDetails}>
-            <div className="actions-row" style={{ alignItems: 'center' }}>
-              {details.photo
-                ? <img src={details.photo} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: '50%' }} />
-                : <span className="brand-logo" style={{ width: 64, height: 64 }} aria-hidden="true" />}
-              <label className="print-btn" style={{ cursor: 'pointer', margin: 0 }}>
-                📷 {t('members.photo')}
-                <input type="file" accept="image/*" onChange={pickPhoto} style={{ display: 'none' }} />
-              </label>
-              {details.photo && <button type="button" className="print-btn" onClick={() => setDetails({ ...details, photo: '' })}>{t('common.delete')}</button>}
-            </div>
+            <PhotoPicker value={details.photo} onChange={(p) => setDetails({ ...details, photo: p })} />
 
             <input placeholder={t('field.name')} value={details.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} required />
             <input placeholder={t('field.relation')} value={details.relation_name} onChange={(e) => setDetails({ ...details, relation_name: e.target.value })} />

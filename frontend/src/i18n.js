@@ -372,6 +372,18 @@ export const translations = {
     // Meetings (new)
     'meet.minutes': 'Minutes of Meeting',
     'meet.mom': 'Minutes (MOM)',
+
+    // Sidebar Permissions
+    'nav.sidebarPerms': 'Sidebar Access',
+    'sperm.title': 'Sidebar Access',
+    'sperm.subtitle': 'Choose which sidebar pages each role can see.',
+    'sperm.note': 'Tick to allow a role to see that page. Superadmin always sees everything. Members must sign in again for changes to apply.',
+    'sperm.page': 'Page',
+
+    // Photo crop
+    'photo.crop': 'Crop Photo',
+    'photo.dragHint': 'Drag to reposition · slider to zoom',
+    'photo.apply': 'Apply',
   },
 
   hi: {
@@ -726,6 +738,18 @@ export const translations = {
     // Meetings (new)
     'meet.minutes': 'बैठक का कार्यवृत्त',
     'meet.mom': 'कार्यवृत्त (MOM)',
+
+    // Sidebar Permissions
+    'nav.sidebarPerms': 'साइडबार एक्सेस',
+    'sperm.title': 'साइडबार एक्सेस',
+    'sperm.subtitle': 'चुनें कि प्रत्येक भूमिका कौन-से साइडबार पेज देख सकती है।',
+    'sperm.note': 'टिक करें ताकि वह भूमिका वह पेज देख सके। सुपर एडमिन हमेशा सब देखता है। बदलाव लागू होने के लिए सदस्य को दोबारा साइन इन करना होगा।',
+    'sperm.page': 'पेज',
+
+    // Photo crop
+    'photo.crop': 'फ़ोटो क्रॉप करें',
+    'photo.dragHint': 'खींचकर सेट करें · ज़ूम के लिए स्लाइडर',
+    'photo.apply': 'लागू करें',
   },
 };
 
