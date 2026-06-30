@@ -549,7 +549,7 @@ textarea { min-height: 80px; resize: vertical; }
 /* ============================================================
    Responsive
    ============================================================ */
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   .sidebar {
     position: fixed;
     z-index: 200;
