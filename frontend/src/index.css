@@ -645,8 +645,10 @@ textarea { min-height: 80px; resize: vertical; }
 /* ============================================================
    Text size control (sm / md / lg) — scales the whole UI
    ============================================================ */
-:root[data-fontsize="sm"] body { zoom: 0.9; }
-:root[data-fontsize="lg"] body { zoom: 1.14; }
+:root[data-fontsize="xs"] body { zoom: 0.82; }
+:root[data-fontsize="sm"] body { zoom: 0.91; }
+:root[data-fontsize="lg"] body { zoom: 1.12; }
+:root[data-fontsize="xl"] body { zoom: 1.25; }
 
 /* Topbar control group */
 .topbar-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

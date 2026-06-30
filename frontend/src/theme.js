@@ -15,8 +15,8 @@ export function setTheme(theme) {
 }
 
 
-// --- Text size (sm | md | lg) ---
-export const FONT_SIZES = ['sm', 'md', 'lg'];
+// --- Text size (xs | sm | md | lg | xl) ---
+export const FONT_SIZES = ['xs', 'sm', 'md', 'lg', 'xl'];
 
 export function getActiveFontSize() {
   return document.documentElement.getAttribute('data-fontsize') || 'md';

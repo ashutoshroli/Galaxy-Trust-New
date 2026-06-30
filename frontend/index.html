@@ -27,7 +27,7 @@
           }
           document.documentElement.setAttribute('data-theme', t);
           var fs = localStorage.getItem('galaxy_fontsize');
-          if (fs !== 'sm' && fs !== 'md' && fs !== 'lg') fs = 'md';
+          if (['xs','sm','md','lg','xl'].indexOf(fs) === -1) fs = 'md';
           document.documentElement.setAttribute('data-fontsize', fs);
           var lang = localStorage.getItem('galaxy_lang');
           document.documentElement.setAttribute('lang', (lang === 'hi' ? 'hi' : 'en'));

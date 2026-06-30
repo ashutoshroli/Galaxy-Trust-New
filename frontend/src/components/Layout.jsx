@@ -91,11 +91,11 @@ export default function Layout({ children }) {
           </div>
 
           <div className="topbar-controls">
-            <NotificationBell />
-            <button className="print-btn icon-btn" onClick={() => changeFont(-1)} disabled={fontSize === 'sm'} title="Decrease text size" aria-label="Decrease text size" style={{ fontSize: 13 }}>A−</button>
-            <button className="print-btn icon-btn" onClick={() => changeFont(1)} disabled={fontSize === 'lg'} title="Increase text size" aria-label="Increase text size" style={{ fontSize: 17 }}>A+</button>
+            <button className="print-btn icon-btn" onClick={() => changeFont(-1)} disabled={fontSize === FONT_SIZES[0]} title="Decrease text size" aria-label="Decrease text size" style={{ fontSize: 13 }}>A−</button>
+            <button className="print-btn icon-btn" onClick={() => changeFont(1)} disabled={fontSize === FONT_SIZES[FONT_SIZES.length - 1]} title="Increase text size" aria-label="Increase text size" style={{ fontSize: 17 }}>A+</button>
             <button className="print-btn icon-btn" onClick={toggleLang} title="Language" aria-label="Language">{lang === 'en' ? 'EN' : 'हिं'}</button>
             <button className="print-btn icon-btn" onClick={toggleTheme} title="Theme" aria-label="Theme">{theme === 'dark' ? '☀️' : '🌙'}</button>
+            <NotificationBell />
             <button onClick={logout}>{t('action.logout')}</button>
           </div>
         </div>
