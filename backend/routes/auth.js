@@ -38,7 +38,7 @@ router.post('/login', async (req, res) => {
        FROM users u
        LEFT JOIN members m ON u.member_id = m.id
        WHERE LOWER(u.username) = LOWER($1)
-          OR (POSITION('@' IN $1) > 0 AND LOWER(u.email) = LOWER($1))
+          OR (POSITION('@' IN $1) > 0 AND (LOWER(u.email) = LOWER($1) OR LOWER(m.email) = LOWER($1)))
           OR (LENGTH($2) >= 10 AND RIGHT(regexp_replace(COALESCE(u.phone, ''), '\\D', '', 'g'), 10) = RIGHT($2, 10))
        LIMIT 1`,
       [identifier, digits]
@@ -174,7 +174,7 @@ router.post('/forgot-password/lookup', async (req, res) => {
       `SELECT u.username, COALESCE(NULLIF(m.name, ''), u.username) AS name
        FROM users u
        LEFT JOIN members m ON u.member_id = m.id
-       WHERE LOWER(u.email) = LOWER($1)
+       WHERE LOWER(u.email) = LOWER($1) OR LOWER(m.email) = LOWER($1)
        LIMIT 1`,
       [email]
     );
@@ -200,11 +200,21 @@ router.post('/forgot-password', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'SELECT id, username, email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+      `SELECT u.id, u.username, u.email AS user_email, m.email AS member_email
+       FROM users u
+       LEFT JOIN members m ON u.member_id = m.id
+       WHERE LOWER(u.email) = LOWER($1) OR LOWER(m.email) = LOWER($1)
+       LIMIT 1`,
       [email]
     );
     const user = result.rows[0];
     if (!user) return res.json(generic); // don't reveal non-existence
+
+    // Send to whichever stored email matched the request (account or member email)
+    const toEmail =
+      [user.user_email, user.member_email].find((e) => e && e.toLowerCase() === email.toLowerCase()) ||
+      user.user_email ||
+      user.member_email;
 
     // Create a single-use token; store only its hash.
     const token = crypto.randomBytes(32).toString('hex');
@@ -234,7 +244,7 @@ router.post('/forgot-password', async (req, res) => {
       `<p>Or paste this link into your browser:<br><a href="${link}">${link}</a></p>` +
       `<p style="color:#888;font-size:13px">If you didn't request this, you can safely ignore this email — your password won't change.</p>`;
 
-    const sent = await sendMail({ to: user.email, subject, text, html });
+    const sent = await sendMail({ to: toEmail, subject, text, html });
     if (!sent) {
       // SMTP not configured — surface the link in the server log as a fallback.
       logger.warn('Password reset link (email not sent — SMTP off)', { userId: user.id, link });
