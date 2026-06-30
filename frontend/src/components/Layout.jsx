@@ -86,6 +86,12 @@ export default function Layout({ children }) {
             {t(item.key)}
           </NavLink>
         ))}
+
+        <div className="sidebar-footer">
+          © {new Date().getFullYear()} {t('app.brand')} · v1.0
+          <br />
+          {t('footer.made')}
+        </div>
       </nav>
 
       <div className="main">
