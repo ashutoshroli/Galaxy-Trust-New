@@ -115,6 +115,8 @@ export default function NotificationBell() {
         <div className="card" style={{
           position: 'fixed', top: pos.top, right: 10, width: 'min(340px, calc(100vw - 20px))', maxHeight: '70vh',
           overflowY: 'auto', zIndex: 600, padding: 12, margin: 0,
+          background: 'var(--space-1)', backdropFilter: 'none', WebkitBackdropFilter: 'none',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
         }}>
           <div className="card-header" style={{ marginBottom: 8 }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('notif.title')}</h3>
