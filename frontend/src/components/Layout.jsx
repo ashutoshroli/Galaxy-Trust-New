@@ -37,6 +37,12 @@ export default function Layout({ children }) {
     apiCall('/nav-permissions/mine').then((d) => setAllowed(d.allowed)).catch(() => setAllowed(null));
   }, []);
 
+  // Lock background scroll while the mobile drawer is open
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
+
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
@@ -67,6 +73,7 @@ export default function Layout({ children }) {
         <h2>
           <span className="brand-logo" aria-hidden="true" />
           {t('app.brand')}
+          <button className="sidebar-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">✕</button>
         </h2>
         {NAV_ITEMS.filter((item) => {
           if (item.superadminOnly) return user?.role === 'superadmin';
