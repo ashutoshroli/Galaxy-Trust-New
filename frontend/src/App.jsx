@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Members from './pages/Members.jsx';
 import Contributions from './pages/Contributions.jsx';
@@ -35,6 +36,7 @@ export default function App() {
         <div className="starfield" aria-hidden="true" />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<Protected><Dashboard /></Protected>} />
           <Route path="/feed" element={<Protected><Feed /></Protected>} />
           <Route path="/members" element={<Protected><Members /></Protected>} />

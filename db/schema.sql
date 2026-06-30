@@ -240,6 +240,18 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(150);
 -- Email can be used to log in, so it must be unique (ignoring NULLs), case-insensitive
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (LOWER(email)) WHERE email IS NOT NULL;
 
+-- Email-based password reset: short-lived, single-use, hashed tokens
+CREATE TABLE IF NOT EXISTS password_resets (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS password_resets_token_idx ON password_resets (token_hash);
+CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets (user_id);
+
 -- Helpful indexes for the most common lookups / joins
 CREATE INDEX IF NOT EXISTS idx_contributions_member ON contributions(member_id);
 CREATE INDEX IF NOT EXISTS idx_contributions_installment ON contributions(installment_id);

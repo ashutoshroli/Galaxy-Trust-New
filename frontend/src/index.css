@@ -119,6 +119,22 @@ body {
   line-height: 1.6;
 }
 
+/* Inline link-style button (e.g. "Forgot Password?", "Back to Sign In") */
+.link-btn {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  width: auto;
+  color: var(--accent, #8c96e6);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.link-btn:hover { opacity: 0.85; }
+
 .app-shell { display: flex; min-height: 100vh; width: 100%; max-width: 100%; overflow-x: hidden; }
 
 .sidebar {

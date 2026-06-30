@@ -1,14 +1,27 @@
 import express from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
+import { sendMail } from '../utils/mailer.js';
 import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
 const MAX_ATTEMPTS = parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5');
 const LOCK_MINUTES = parseInt(process.env.LOCK_TIME_MINUTES || '15');
+const RESET_TOKEN_TTL_MIN = parseInt(process.env.RESET_TOKEN_TTL_MIN || '30');
+
+// Base URL of the frontend, used to build the password-reset link.
+function appUrl() {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL.replace(/\/+$/, '');
+  const origin = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)[0];
+  return origin ? origin.replace(/\/+$/, '') : '';
+}
 
 // Login with username, mobile number OR email
 router.post('/login', async (req, res) => {
@@ -146,6 +159,107 @@ router.post('/change-password', async (req, res) => {
   } catch (err) {
     logger.error('change-password error', { message: err.message });
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Request a password reset link by email.
+// Always returns a generic success so attackers can't probe which emails exist.
+router.post('/forgot-password', async (req, res) => {
+  const email = (req.body.email || '').trim();
+  const generic = { message: 'If an account with that email exists, a reset link has been sent.' };
+
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT id, username, email FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+      [email]
+    );
+    const user = result.rows[0];
+    if (!user) return res.json(generic); // don't reveal non-existence
+
+    // Create a single-use token; store only its hash.
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MIN * 60000);
+
+    // Invalidate any previous outstanding tokens for this user.
+    await pool.query('UPDATE password_resets SET used = TRUE WHERE user_id = $1 AND used = FALSE', [user.id]);
+    await pool.query(
+      'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      [user.id, tokenHash, expiresAt]
+    );
+
+    const link = `${appUrl()}/reset-password?token=${token}`;
+    const subject = 'Galaxy Trust — Reset your password';
+    const text =
+      `Hello ${user.username},\n\n` +
+      `We received a request to reset your Galaxy Trust password. ` +
+      `Open the link below to set a new password (valid for ${RESET_TOKEN_TTL_MIN} minutes):\n\n` +
+      `${link}\n\n` +
+      `If you didn't request this, you can safely ignore this email — your password won't change.`;
+    const html =
+      `<p>Hello <b>${user.username}</b>,</p>` +
+      `<p>We received a request to reset your Galaxy Trust password. ` +
+      `Click the button below to set a new password. This link is valid for ${RESET_TOKEN_TTL_MIN} minutes.</p>` +
+      `<p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#6d5efc;color:#fff;border-radius:8px;text-decoration:none">Reset Password</a></p>` +
+      `<p>Or paste this link into your browser:<br><a href="${link}">${link}</a></p>` +
+      `<p style="color:#888;font-size:13px">If you didn't request this, you can safely ignore this email — your password won't change.</p>`;
+
+    const sent = await sendMail({ to: user.email, subject, text, html });
+    if (!sent) {
+      // SMTP not configured — surface the link in the server log as a fallback.
+      logger.warn('Password reset link (email not sent — SMTP off)', { userId: user.id, link });
+    }
+
+    await logActivity(user.id, user.username, 'password_reset_requested', req);
+    return res.json(generic);
+  } catch (err) {
+    logger.error('forgot-password error', { message: err.message });
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Complete a password reset using the emailed token.
+router.post('/reset-password', async (req, res) => {
+  const token = (req.body.token || '').trim();
+  const newPassword = req.body.new_password || '';
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Token and new password are required' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+
+  try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const result = await pool.query(
+      'SELECT * FROM password_resets WHERE token_hash = $1 AND used = FALSE AND expires_at > NOW() LIMIT 1',
+      [tokenHash]
+    );
+    const reset = result.rows[0];
+    if (!reset) {
+      return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE users SET password_hash = $1, failed_attempts = 0, locked_until = NULL WHERE id = $2',
+      [newHash, reset.user_id]
+    );
+    await pool.query('UPDATE password_resets SET used = TRUE WHERE id = $1', [reset.id]);
+
+    const u = await pool.query('SELECT username FROM users WHERE id = $1', [reset.user_id]);
+    await logActivity(reset.user_id, u.rows[0]?.username || null, 'password_reset', req);
+
+    return res.json({ message: 'Your password has been reset. Please sign in.' });
+  } catch (err) {
+    logger.error('reset-password error', { message: err.message });
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
