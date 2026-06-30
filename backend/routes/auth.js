@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db.js';
+import { authenticate } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 
 const router = express.Router();
@@ -143,6 +144,81 @@ router.post('/change-password', async (req, res) => {
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
     logger.error('change-password error', { message: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get the logged-in user's own account info (username + email)
+router.get('/account', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, email, role FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    logger.error('account get error', { message: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update the logged-in user's own username and/or email
+router.put('/account', authenticate, async (req, res) => {
+  const username = (req.body.username || '').trim();
+  const email = (req.body.email || '').trim();
+
+  if (!username) return res.status(400).json({ error: 'Username is required' });
+  if (username.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters' });
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
+
+  try {
+    // Username must stay unique (case-insensitive), ignoring the user's own row
+    const dup = await pool.query(
+      'SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2',
+      [username, req.user.id]
+    );
+    if (dup.rows.length) return res.status(409).json({ error: 'That username is already taken' });
+
+    const result = await pool.query(
+      'UPDATE users SET username = $1, email = $2 WHERE id = $3 RETURNING id, username, email, role, member_id',
+      [username, email || null, req.user.id]
+    );
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // The username is embedded in the JWT, so issue a fresh token reflecting the change
+    let member_role = null;
+    if (user.member_id) {
+      const mr = await pool.query('SELECT role AS member_role FROM members WHERE id = $1', [user.member_id]);
+      member_role = mr.rows[0]?.member_role || null;
+    }
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, member_id: user.member_id, member_role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+    );
+
+    await logActivity(user.id, user.username, 'account_updated', req);
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        member_id: user.member_id,
+        member_role,
+      },
+    });
+  } catch (err) {
+    logger.error('account update error', { message: err.message });
     res.status(500).json({ error: 'Server error' });
   }
 });

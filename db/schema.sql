@@ -235,6 +235,9 @@ UPDATE users u SET phone = m.phone
   FROM members m
   WHERE u.member_id = m.id AND (u.phone IS NULL OR u.phone = '');
 
+-- Account email: let each login account store its own email (self-service editable in Profile)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(150);
+
 -- Helpful indexes for the most common lookups / joins
 CREATE INDEX IF NOT EXISTS idx_contributions_member ON contributions(member_id);
 CREATE INDEX IF NOT EXISTS idx_contributions_installment ON contributions(installment_id);

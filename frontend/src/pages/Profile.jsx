@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiCall, getUser } from '../api.js';
+import { apiCall, getUser, setToken, setUser as saveUser } from '../api.js';
 import { useI18n } from '../i18n.js';
 import { useToast } from '../components/Toast.jsx';
 import PhotoPicker from '../components/PhotoPicker.jsx';
@@ -7,7 +7,11 @@ import PhotoPicker from '../components/PhotoPicker.jsx';
 export default function Profile() {
   const { t } = useI18n();
   const toast = useToast();
-  const user = getUser();
+  const [user, setUserState] = useState(getUser());
+
+  // ---- Account (username + email) ----
+  const [account, setAccount] = useState({ username: '', email: '' });
+  const [savingAccount, setSavingAccount] = useState(false);
 
   // ---- Personal details ----
   const [profile, setProfile] = useState(null);
@@ -22,6 +26,12 @@ export default function Profile() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    apiCall('/auth/account')
+      .then((a) => setAccount({ username: a.username || '', email: a.email || '' }))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     apiCall('/members/me')
@@ -42,6 +52,30 @@ export default function Profile() {
       })
       .catch(() => {});
   }, []);
+
+  async function saveAccount(e) {
+    e.preventDefault();
+    if (!account.username.trim()) return toast.error(t('profile.username'));
+    if (savingAccount) return;
+    setSavingAccount(true);
+    try {
+      const res = await apiCall('/auth/account', {
+        method: 'PUT',
+        body: JSON.stringify({ username: account.username.trim(), email: account.email.trim() }),
+      });
+      if (res.token) setToken(res.token);
+      if (res.user) {
+        saveUser(res.user);
+        setUserState(res.user);
+        setAccount({ username: res.user.username || '', email: res.user.email || '' });
+      }
+      toast.success(t('profile.accountUpdated'));
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingAccount(false);
+    }
+  }
 
   async function pickPhoto(e) {
     const file = e.target.files?.[0];
@@ -105,6 +139,30 @@ export default function Profile() {
           <strong>{t('profile.username')}:</strong> {user?.username}{' '}
           <span className={`badge ${user?.member_role || user?.role}`}>{t(`role.${user?.member_role || user?.role}`)}</span>
         </p>
+      </div>
+
+      {/* Account — username + email (editable by every user) */}
+      <div className="card" style={{ maxWidth: 480 }}>
+        <h3>{t('profile.account')}</h3>
+        <form onSubmit={saveAccount}>
+          <label className="muted" style={{ fontSize: 13 }}>{t('profile.username')}</label>
+          <input
+            placeholder={t('profile.username')}
+            value={account.username}
+            onChange={(e) => setAccount({ ...account, username: e.target.value })}
+            required
+          />
+          <label className="muted" style={{ fontSize: 13 }}>{t('field.email')}</label>
+          <input
+            type="email"
+            placeholder={t('field.email')}
+            value={account.email}
+            onChange={(e) => setAccount({ ...account, email: e.target.value })}
+          />
+          <button type="submit" disabled={savingAccount}>
+            {savingAccount ? t('profile.updating') : t('profile.saveAccount')}
+          </button>
+        </form>
       </div>
 
       {/* Personal details — only when the account is linked to a member */}

@@ -218,6 +218,9 @@ export const translations = {
     // Profile
     'profile.title': 'Profile',
     'profile.username': 'Username',
+    'profile.account': 'Account',
+    'profile.saveAccount': 'Save Account',
+    'profile.accountUpdated': 'Your account was updated.',
     'profile.changePassword': 'Change Password',
     'profile.current': 'Current Password',
     'profile.new': 'New Password (min 8 characters)',
@@ -600,6 +603,9 @@ export const translations = {
 
     'profile.title': 'प्रोफ़ाइल',
     'profile.username': 'उपयोगकर्ता नाम',
+    'profile.account': 'खाता',
+    'profile.saveAccount': 'खाता सहेजें',
+    'profile.accountUpdated': 'आपका खाता अपडेट हो गया।',
     'profile.changePassword': 'पासवर्ड बदलें',
     'profile.current': 'वर्तमान पासवर्ड',
     'profile.new': 'नया पासवर्ड (न्यूनतम 8 अक्षर)',
