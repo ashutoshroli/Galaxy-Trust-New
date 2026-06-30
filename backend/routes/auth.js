@@ -10,12 +10,12 @@ const router = express.Router();
 const MAX_ATTEMPTS = parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5');
 const LOCK_MINUTES = parseInt(process.env.LOCK_TIME_MINUTES || '15');
 
-// Login with username OR mobile number
+// Login with username, mobile number OR email
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const identifier = (username || '').trim();
   if (!identifier || !password) {
-    return res.status(400).json({ error: 'Username/mobile and password required' });
+    return res.status(400).json({ error: 'Username/mobile/email and password required' });
   }
   const digits = identifier.replace(/\D/g, '');
 
@@ -24,7 +24,8 @@ router.post('/login', async (req, res) => {
       `SELECT u.*, m.role AS member_role
        FROM users u
        LEFT JOIN members m ON u.member_id = m.id
-       WHERE u.username = $1
+       WHERE LOWER(u.username) = LOWER($1)
+          OR (POSITION('@' IN $1) > 0 AND LOWER(u.email) = LOWER($1))
           OR (LENGTH($2) >= 10 AND RIGHT(regexp_replace(COALESCE(u.phone, ''), '\\D', '', 'g'), 10) = RIGHT($2, 10))
        LIMIT 1`,
       [identifier, digits]
@@ -184,6 +185,15 @@ router.put('/account', authenticate, async (req, res) => {
       [username, req.user.id]
     );
     if (dup.rows.length) return res.status(409).json({ error: 'That username is already taken' });
+
+    // Email must also be unique (it can be used to log in), ignoring the user's own row
+    if (email) {
+      const dupEmail = await pool.query(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2',
+        [email, req.user.id]
+      );
+      if (dupEmail.rows.length) return res.status(409).json({ error: 'That email is already in use' });
+    }
 
     const result = await pool.query(
       'UPDATE users SET username = $1, email = $2 WHERE id = $3 RETURNING id, username, email, role, member_id',

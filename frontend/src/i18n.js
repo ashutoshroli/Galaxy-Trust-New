@@ -93,7 +93,7 @@ export const translations = {
     // Login
     'login.subtitle': 'Educational & Social Welfare Trust',
     'login.username': 'Username',
-    'login.identifier': 'Username or Mobile',
+    'login.identifier': 'Username, Mobile or Email',
     'login.password': 'Password',
     'login.signIn': 'Sign In',
     'login.signingIn': 'Signing in…',
@@ -487,7 +487,7 @@ export const translations = {
 
     'login.subtitle': 'शैक्षिक एवं सामाजिक कल्याण ट्रस्ट',
     'login.username': 'उपयोगकर्ता नाम',
-    'login.identifier': 'उपयोगकर्ता नाम या मोबाइल',
+    'login.identifier': 'उपयोगकर्ता नाम, मोबाइल या ईमेल',
     'login.password': 'पासवर्ड',
     'login.signIn': 'साइन इन करें',
     'login.signingIn': 'साइन इन हो रहा है…',

@@ -237,6 +237,8 @@ UPDATE users u SET phone = m.phone
 
 -- Account email: let each login account store its own email (self-service editable in Profile)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(150);
+-- Email can be used to log in, so it must be unique (ignoring NULLs), case-insensitive
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique_idx ON users (LOWER(email)) WHERE email IS NOT NULL;
 
 -- Helpful indexes for the most common lookups / joins
 CREATE INDEX IF NOT EXISTS idx_contributions_member ON contributions(member_id);
