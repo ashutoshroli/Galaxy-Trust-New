@@ -20,7 +20,26 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
+  const [pos, setPos] = useState({ top: 56, right: 12 });
   const boxRef = useRef(null);
+  const btnRef = useRef(null);
+
+  function computePos() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setPos({
+      top: Math.round(r.bottom + 8),
+      right: Math.max(8, Math.round(window.innerWidth - r.right)),
+    });
+  }
+
+  function toggleMenu() {
+    setOpen((o) => {
+      const next = !o;
+      if (next) { computePos(); load(); }
+      return next;
+    });
+  }
 
   function load() {
     apiCall('/notifications?limit=30')
@@ -42,6 +61,18 @@ export default function NotificationBell() {
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
+
+  // Keep the panel anchored to the bell when the viewport changes
+  useEffect(() => {
+    if (!open) return;
+    function reposition() { computePos(); }
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [open]);
 
   async function openItem(n) {
     setOpen(false);
@@ -72,7 +103,7 @@ export default function NotificationBell() {
 
   return (
     <div ref={boxRef} style={{ position: 'relative' }}>
-      <button className="print-btn icon-btn" onClick={() => { setOpen((o) => !o); if (!open) load(); }} title={t('notif.title')} aria-label={t('notif.title')} style={{ position: 'relative' }}>
+      <button ref={btnRef} className="print-btn icon-btn" onClick={toggleMenu} title={t('notif.title')} aria-label={t('notif.title')} style={{ position: 'relative' }}>
         🔔
         {unread > 0 && (
           <span style={{
@@ -85,8 +116,8 @@ export default function NotificationBell() {
 
       {open && (
         <div className="card" style={{
-          position: 'absolute', right: 0, top: 46, width: 320, maxWidth: '90vw', maxHeight: 440,
-          overflowY: 'auto', zIndex: 300, padding: 12, margin: 0,
+          position: 'fixed', top: pos.top, right: pos.right, width: 'min(360px, 92vw)', maxHeight: '70vh',
+          overflowY: 'auto', zIndex: 600, padding: 12, margin: 0,
         }}>
           <div className="card-header" style={{ marginBottom: 8 }}>
             <h3 style={{ margin: 0, fontSize: 16 }}>{t('notif.title')}</h3>
