@@ -135,6 +135,18 @@ body {
 }
 .link-btn:hover { opacity: 0.85; }
 
+/* Forgot-password "account found" confirmation block */
+.account-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  margin: 4px 0 10px;
+  border-radius: 10px;
+  background: rgba(140, 150, 230, 0.10);
+  border: 1px solid var(--glass-border);
+}
+
 .app-shell { display: flex; min-height: 100vh; width: 100%; max-width: 100%; overflow-x: hidden; }
 
 .sidebar {

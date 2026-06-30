@@ -162,6 +162,31 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
+// Look up the account name for an email (step 1 of the forgot-password flow).
+// Lets the user confirm the right account before a reset link is sent.
+router.post('/forgot-password/lookup', async (req, res) => {
+  const email = (req.body.email || '').trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT u.username, COALESCE(NULLIF(m.name, ''), u.username) AS name
+       FROM users u
+       LEFT JOIN members m ON u.member_id = m.id
+       WHERE LOWER(u.email) = LOWER($1)
+       LIMIT 1`,
+      [email]
+    );
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'No account is registered with that email.' });
+    return res.json({ name: user.name, username: user.username });
+  } catch (err) {
+    logger.error('forgot-password lookup error', { message: err.message });
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Request a password reset link by email.
 // Always returns a generic success so attackers can't probe which emails exist.
 router.post('/forgot-password', async (req, res) => {

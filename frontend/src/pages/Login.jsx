@@ -11,6 +11,7 @@ export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
+  const [lookup, setLookup] = useState(null); // { name, username } once email is confirmed
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,27 @@ export default function Login() {
     }
   }
 
-  async function handleForgot(e) {
+  // Step 1: confirm which account the email belongs to
+  async function handleLookup(e) {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+    setLoading(true);
+    try {
+      const data = await apiCall('/auth/forgot-password/lookup', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
+      setLookup(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 2: actually send the reset link
+  async function handleSendLink(e) {
     e.preventDefault();
     setError('');
     setInfo('');
@@ -45,6 +66,7 @@ export default function Login() {
         body: JSON.stringify({ email }),
       });
       setInfo(data.message || t('login.resetLinkSent'));
+      setLookup(null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -56,11 +78,12 @@ export default function Login() {
     setMode(next);
     setError('');
     setInfo('');
+    setLookup(null);
   }
 
   return (
     <div className="login-wrap">
-      <form className="login-box" onSubmit={mode === 'login' ? handleLogin : handleForgot}>
+      <form className="login-box" onSubmit={mode === 'login' ? handleLogin : (lookup ? handleSendLink : handleLookup)}>
         <div className="login-logo" aria-hidden="true" />
         <h2><span className="gradient-text">{t('app.brand')}</span></h2>
         <p className="subtitle">{mode === 'login' ? t('login.subtitle') : t('login.forgotTitle')}</p>
@@ -91,22 +114,39 @@ export default function Login() {
               </button>
             </p>
           </>
-        ) : (
+        ) : !lookup ? (
           <>
             <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>{t('login.forgotHint')}</p>
             <input
               type="email"
               placeholder={t('login.email')}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); setError(''); }}
               autoFocus
             />
             <button type="submit" disabled={loading} style={{ width: '100%', marginTop: 4 }}>
-              {loading ? t('login.sending') : t('login.sendResetLink')}
+              {loading ? t('login.searching') : t('login.findAccount')}
             </button>
             <p style={{ textAlign: 'center', marginTop: 14, marginBottom: 0 }}>
               <button type="button" className="link-btn" onClick={() => switchMode('login')}>
                 {t('login.backToLogin')}
+              </button>
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="account-confirm">
+              <span className="muted" style={{ fontSize: 13 }}>{t('login.accountFound')}</span>
+              <strong style={{ fontSize: 18 }}>{lookup.name}</strong>
+              <span className="muted" style={{ fontSize: 13 }}>@{lookup.username} · {email}</span>
+            </div>
+            <p className="muted" style={{ fontSize: 13 }}>{t('login.confirmSendHint')}</p>
+            <button type="submit" disabled={loading} style={{ width: '100%', marginTop: 4 }}>
+              {loading ? t('login.sending') : t('login.sendResetLink')}
+            </button>
+            <p style={{ textAlign: 'center', marginTop: 14, marginBottom: 0 }}>
+              <button type="button" className="link-btn" onClick={() => { setLookup(null); setError(''); }}>
+                {t('login.useDifferentEmail')}
               </button>
             </p>
           </>
