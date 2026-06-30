@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [fundUsage, setFundUsage] = useState([]);
   const [trend, setTrend] = useState([]);
   const [birthdays, setBirthdays] = useState([]);
+  const [cashiers, setCashiers] = useState([]);
   const [error, setError] = useState('');
   const user = getUser();
 
@@ -28,6 +29,7 @@ export default function Dashboard() {
     apiCall('/reports/fund-usage').then(setFundUsage).catch(() => {});
     apiCall('/reports/monthly-trend').then(setTrend).catch(() => {});
     apiCall('/reports/upcoming-birthdays?days=30').then(setBirthdays).catch(() => {});
+    apiCall('/reports/cashiers').then(setCashiers).catch(() => {});
   }, []);
 
   const inr = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
@@ -129,6 +131,27 @@ export default function Dashboard() {
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
             <span style={{ color: '#34d399' }}>■</span> {t('dash.income')} &nbsp; <span style={{ color: '#fb7185' }}>■</span> {t('dash.outflow')}
           </div>
+        </div>
+      )}
+
+      {cashiers.length > 0 && (
+        <div className="card">
+          <div className="card-header"><h3>👛 {t('dash.cashierWise')}</h3></div>
+          <table style={{ marginTop: 10 }}>
+            <thead>
+              <tr><th>{t('cashier.cashier')}</th><th>{t('cashier.totalIn')}</th><th>{t('cashier.totalOut')}</th><th>{t('field.balance')}</th></tr>
+            </thead>
+            <tbody>
+              {cashiers.map((c) => (
+                <tr key={c.member_id}>
+                  <td>{c.name}</td>
+                  <td style={{ color: 'var(--success)' }}>{inr(c.total_in)}</td>
+                  <td style={{ color: 'var(--danger)' }}>{inr(c.total_out)}</td>
+                  <td style={{ fontWeight: 600 }}>{inr(c.balance)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

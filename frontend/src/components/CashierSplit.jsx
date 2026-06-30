@@ -137,6 +137,9 @@ export default function CashierSplit({ cashiers = [], total = 0, onChange, initi
                   style={{ width: 'auto', margin: 0 }}
                 />
                 {c.name}
+                {c.balance !== undefined && c.balance !== null && (
+                  <span className="muted" style={{ fontSize: 12 }}>· {inr(c.balance)}</span>
+                )}
               </label>
               {isSel && (
                 <input

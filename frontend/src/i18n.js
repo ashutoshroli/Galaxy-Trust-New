@@ -362,6 +362,7 @@ export const translations = {
     'dash.birthdays': 'Upcoming Birthdays',
     'dash.today': 'Today 🎉',
     'dash.inDays': 'in {n} day(s)',
+    'dash.cashierWise': 'Cashier-wise In / Out',
 
     // Reports (new)
     'rep.annual': 'Annual Statement',
@@ -739,6 +740,7 @@ export const translations = {
     'dash.birthdays': 'आगामी जन्मदिन',
     'dash.today': 'आज 🎉',
     'dash.inDays': '{n} दिन में',
+    'dash.cashierWise': 'कैशियर अनुसार आय / व्यय',
 
     // Reports (new)
     'rep.annual': 'वार्षिक विवरण',
