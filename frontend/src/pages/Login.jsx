@@ -35,7 +35,7 @@ export default function Login() {
     }
   }
 
-  // Step 1: confirm which account the email belongs to
+  // Step 1: confirm which account the identifier (username / mobile / email) belongs to
   async function handleLookup(e) {
     e.preventDefault();
     setError('');
@@ -44,7 +44,7 @@ export default function Login() {
     try {
       const data = await apiCall('/auth/forgot-password/lookup', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ identifier: email }),
       });
       setLookup(data);
     } catch (err) {
@@ -63,10 +63,11 @@ export default function Login() {
     try {
       const data = await apiCall('/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ identifier: email }),
       });
       setInfo(data.message || t('login.resetLinkSent'));
       setLookup(null);
+      setEmail('');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -118,8 +119,8 @@ export default function Login() {
           <>
             <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>{t('login.forgotHint')}</p>
             <input
-              type="email"
-              placeholder={t('login.email')}
+              type="text"
+              placeholder={t('login.forgotIdentifier')}
               value={email}
               onChange={(e) => { setEmail(e.target.value); setError(''); }}
               autoFocus
@@ -138,15 +139,23 @@ export default function Login() {
             <div className="account-confirm">
               <span className="muted" style={{ fontSize: 13 }}>{t('login.accountFound')}</span>
               <strong style={{ fontSize: 18 }}>{lookup.name}</strong>
-              <span className="muted" style={{ fontSize: 13 }}>@{lookup.username} · {email}</span>
+              <span className="muted" style={{ fontSize: 13 }}>@{lookup.username}</span>
             </div>
-            <p className="muted" style={{ fontSize: 13 }}>{t('login.confirmSendHint')}</p>
-            <button type="submit" disabled={loading} style={{ width: '100%', marginTop: 4 }}>
-              {loading ? t('login.sending') : t('login.sendResetLink')}
-            </button>
+            {lookup.hasEmail ? (
+              <>
+                <p className="muted" style={{ fontSize: 13 }}>
+                  {t('login.linkWillBeSentTo')} <strong>{lookup.maskedEmail}</strong>
+                </p>
+                <button type="submit" disabled={loading} style={{ width: '100%', marginTop: 4 }}>
+                  {loading ? t('login.sending') : t('login.sendResetLink')}
+                </button>
+              </>
+            ) : (
+              <p className="error-text" style={{ marginTop: 4 }}>{t('login.noEmailOnFile')}</p>
+            )}
             <p style={{ textAlign: 'center', marginTop: 14, marginBottom: 0 }}>
               <button type="button" className="link-btn" onClick={() => { setLookup(null); setError(''); }}>
-                {t('login.useDifferentEmail')}
+                {t('login.useDifferentAccount')}
               </button>
             </p>
           </>

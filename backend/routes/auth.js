@@ -23,6 +23,36 @@ function appUrl() {
   return origin ? origin.replace(/\/+$/, '') : '';
 }
 
+// Mask an email for display: first 4 chars of the local part, then ****, then @domain.
+// e.g. rekhajan2002@gmail.com -> rekh****@gmail.com
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return '';
+  const [local, domain] = email.split('@');
+  const visible = local.slice(0, Math.min(4, local.length));
+  return `${visible}****@${domain}`;
+}
+
+// Find a login account by username, mobile, or email (account or member email).
+// Returns { id, username, name, email } or null.
+async function findAccountByIdentifier(identifier) {
+  const id = (identifier || '').trim();
+  if (!id) return null;
+  const digits = id.replace(/\D/g, '');
+  const result = await pool.query(
+    `SELECT u.id, u.username,
+            COALESCE(NULLIF(m.name, ''), u.username) AS name,
+            COALESCE(NULLIF(u.email, ''), m.email) AS email
+     FROM users u
+     LEFT JOIN members m ON u.member_id = m.id
+     WHERE LOWER(u.username) = LOWER($1)
+        OR (POSITION('@' IN $1) > 0 AND (LOWER(u.email) = LOWER($1) OR LOWER(m.email) = LOWER($1)))
+        OR (LENGTH($2) >= 10 AND RIGHT(regexp_replace(COALESCE(u.phone, ''), '\\D', '', 'g'), 10) = RIGHT($2, 10))
+     LIMIT 1`,
+    [id, digits]
+  );
+  return result.rows[0] || null;
+}
+
 // Login with username, mobile number OR email
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
@@ -162,59 +192,41 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
-// Look up the account name for an email (step 1 of the forgot-password flow).
+// Look up the account for a username / mobile / email (step 1 of the flow).
 // Lets the user confirm the right account before a reset link is sent.
 router.post('/forgot-password/lookup', async (req, res) => {
-  const email = (req.body.email || '').trim();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Please enter a valid email address' });
-  }
+  const identifier = (req.body.identifier || req.body.email || '').trim();
+  if (!identifier) return res.status(400).json({ error: 'Enter a username, mobile or email' });
   try {
-    const result = await pool.query(
-      `SELECT u.username, COALESCE(NULLIF(m.name, ''), u.username) AS name
-       FROM users u
-       LEFT JOIN members m ON u.member_id = m.id
-       WHERE LOWER(u.email) = LOWER($1) OR LOWER(m.email) = LOWER($1)
-       LIMIT 1`,
-      [email]
-    );
-    const user = result.rows[0];
-    if (!user) return res.status(404).json({ error: 'No account is registered with that email.' });
-    return res.json({ name: user.name, username: user.username });
+    const acc = await findAccountByIdentifier(identifier);
+    if (!acc) return res.status(404).json({ error: 'No account found for that username, mobile or email.' });
+    return res.json({
+      name: acc.name,
+      username: acc.username,
+      hasEmail: Boolean(acc.email),
+      maskedEmail: maskEmail(acc.email),
+    });
   } catch (err) {
     logger.error('forgot-password lookup error', { message: err.message });
     return res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Request a password reset link by email.
-// Always returns a generic success so attackers can't probe which emails exist.
+// Send a password reset link. Accepts a username / mobile / email.
+// Step 1 (lookup) already confirmed the account, so this returns a definite message.
 router.post('/forgot-password', async (req, res) => {
-  const email = (req.body.email || '').trim();
-  const generic = { message: 'If an account with that email exists, a reset link has been sent.' };
-
-  if (!email) return res.status(400).json({ error: 'Email is required' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Please enter a valid email address' });
-  }
+  const identifier = (req.body.identifier || req.body.email || '').trim();
+  if (!identifier) return res.status(400).json({ error: 'Enter a username, mobile or email' });
 
   try {
-    const result = await pool.query(
-      `SELECT u.id, u.username, u.email AS user_email, m.email AS member_email
-       FROM users u
-       LEFT JOIN members m ON u.member_id = m.id
-       WHERE LOWER(u.email) = LOWER($1) OR LOWER(m.email) = LOWER($1)
-       LIMIT 1`,
-      [email]
-    );
-    const user = result.rows[0];
-    if (!user) return res.json(generic); // don't reveal non-existence
+    const acc = await findAccountByIdentifier(identifier);
+    if (!acc) return res.status(404).json({ error: 'No account found for that username, mobile or email.' });
+    if (!acc.email) {
+      return res.status(400).json({ error: 'This account has no email address on file. Please contact an admin.' });
+    }
 
-    // Send to whichever stored email matched the request (account or member email)
-    const toEmail =
-      [user.user_email, user.member_email].find((e) => e && e.toLowerCase() === email.toLowerCase()) ||
-      user.user_email ||
-      user.member_email;
+    const toEmail = acc.email;
+    const masked = maskEmail(toEmail);
 
     // Create a single-use token; store only its hash.
     const token = crypto.randomBytes(32).toString('hex');
@@ -222,40 +234,40 @@ router.post('/forgot-password', async (req, res) => {
     const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MIN * 60000);
 
     // Invalidate any previous outstanding tokens for this user.
-    await pool.query('UPDATE password_resets SET used = TRUE WHERE user_id = $1 AND used = FALSE', [user.id]);
+    await pool.query('UPDATE password_resets SET used = TRUE WHERE user_id = $1 AND used = FALSE', [acc.id]);
     await pool.query(
       'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-      [user.id, tokenHash, expiresAt]
+      [acc.id, tokenHash, expiresAt]
     );
 
     const link = `${appUrl()}/reset-password?token=${token}`;
     const subject = 'Galaxy Trust — Reset your password';
     const text =
-      `Hello ${user.username},\n\n` +
+      `Hello ${acc.username},\n\n` +
       `We received a request to reset your Galaxy Trust password. ` +
       `Open the link below to set a new password (valid for ${RESET_TOKEN_TTL_MIN} minutes):\n\n` +
       `${link}\n\n` +
       `If you didn't request this, you can safely ignore this email — your password won't change.`;
     const html =
-      `<p>Hello <b>${user.username}</b>,</p>` +
+      `<p>Hello <b>${acc.username}</b>,</p>` +
       `<p>We received a request to reset your Galaxy Trust password. ` +
       `Click the button below to set a new password. This link is valid for ${RESET_TOKEN_TTL_MIN} minutes.</p>` +
       `<p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#6d5efc;color:#fff;border-radius:8px;text-decoration:none">Reset Password</a></p>` +
       `<p>Or paste this link into your browser:<br><a href="${link}">${link}</a></p>` +
       `<p style="color:#888;font-size:13px">If you didn't request this, you can safely ignore this email — your password won't change.</p>`;
 
-    await logActivity(user.id, user.username, 'password_reset_requested', req);
+    await logActivity(acc.id, acc.username, 'password_reset_requested', req);
 
     // Respond immediately — don't make the user wait on email delivery.
-    res.json(generic);
+    res.json({ message: `A reset link has been sent to ${masked}. Please check your inbox.`, maskedEmail: masked });
 
     // Deliver the email in the background; log the link if it can't be sent.
     sendMail({ to: toEmail, subject, text, html })
       .then((sent) => {
-        if (!sent) logger.warn('Password reset link (no email provider)', { userId: user.id, link });
+        if (!sent) logger.warn('Password reset link (no email provider)', { userId: acc.id, link });
       })
       .catch((err) => {
-        logger.error('reset email send failed', { userId: user.id, message: err.message, link });
+        logger.error('reset email send failed', { userId: acc.id, message: err.message, link });
       });
     return;
   } catch (err) {
