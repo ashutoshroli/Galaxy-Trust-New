@@ -64,6 +64,7 @@ export default function Contributions() {
     if (!selectedMemberId) return setError(t('contrib.selectMember'));
     const entries = Object.entries(installmentAmounts).filter(([, v]) => v !== '' && parseFloat(v) > 0);
     if (entries.length === 0) return setError(t('contrib.amountPaying'));
+    if (cashierAlloc.length === 0) return setError(t('cashier.required'));
     if (submitting) return;
     setSubmitting(true);
     try {
@@ -131,6 +132,7 @@ export default function Contributions() {
   }
 
   async function saveEdit(id) {
+    if (editCashierAlloc.length === 0) return setError(t('cashier.required'));
     if (editSaving) return;
     setEditSaving(true);
     try {

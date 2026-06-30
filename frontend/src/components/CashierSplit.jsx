@@ -116,7 +116,7 @@ export default function CashierSplit({ cashiers = [], total = 0, onChange, initi
   return (
     <div style={{ border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', padding: 12, marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
-        <strong style={{ fontSize: 14 }}>👛 {t('cashier.selectCashiers')}</strong>
+        <strong style={{ fontSize: 14 }}>👛 {t('cashier.selectCashiers')} <span style={{ color: 'var(--danger)' }}>*</span></strong>
         <span className="muted" style={{ fontSize: 12.5 }}>
           {t('field.total')}: {inr(total)} · {t('cashier.allocated')}: {inr(allocatedSum)}
         </span>

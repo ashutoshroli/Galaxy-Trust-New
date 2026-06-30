@@ -87,6 +87,7 @@ export default function Staff() {
 
   async function addPayment(staffId) {
     if (!payForm.amount || parseFloat(payForm.amount) <= 0) return setError(t('field.amount'));
+    if (payCashierAlloc.length === 0) return setError(t('cashier.required'));
     if (paying) return;
     setPaying(true);
     try {

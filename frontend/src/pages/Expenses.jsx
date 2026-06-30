@@ -51,6 +51,7 @@ export default function Expenses() {
 
   async function handleAdd(e) {
     e.preventDefault();
+    if (expCashierAlloc.length === 0) return setError(t('cashier.required'));
     if (addingExp) return;
     setAddingExp(true);
     try {
@@ -74,6 +75,7 @@ export default function Expenses() {
     e.preventDefault();
     if (!staffPayForm.staff_id) return setError(t('exp.selectStaff'));
     if (!staffPayForm.amount || parseFloat(staffPayForm.amount) <= 0) return setError(t('field.amount'));
+    if (staffCashierAlloc.length === 0) return setError(t('cashier.required'));
     if (addingStaffPay) return;
     setAddingStaffPay(true);
     try {
@@ -122,6 +124,7 @@ export default function Expenses() {
   }
 
   async function saveEdit(id) {
+    if (editExpCashierAlloc.length === 0) return setError(t('cashier.required'));
     if (editingExp) return;
     setEditingExp(true);
     try {
