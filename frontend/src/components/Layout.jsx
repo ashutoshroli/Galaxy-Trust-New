@@ -99,7 +99,13 @@ export default function Layout({ children }) {
             <button onClick={logout}>{t('action.logout')}</button>
           </div>
         </div>
-        {children}
+        <div className="main-content">{children}</div>
+
+        <footer className="app-footer">
+          <div>© {new Date().getFullYear()} {t('app.fullName')}. {t('footer.rights')}</div>
+          <div className="muted">{t('login.subtitle')} · {t('footer.location')}</div>
+          <div className="muted">{t('footer.made')} · v1.0</div>
+        </footer>
       </div>
     </div>
   );

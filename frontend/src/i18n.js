@@ -396,6 +396,9 @@ export const translations = {
     'inst.remind': 'Send Reminders',
     'inst.remindConfirm': 'Send a pending-installment reminder to all members who owe money?',
     'inst.remindSent': 'Reminders sent to {n} member(s)',
+    'footer.rights': 'All rights reserved.',
+    'footer.location': 'Giridih, Jharkhand',
+    'footer.made': 'Made with 💜',
   },
 
   hi: {
@@ -774,6 +777,9 @@ export const translations = {
     'inst.remind': 'रिमाइंडर भेजें',
     'inst.remindConfirm': 'जिन सदस्यों की किश्त बाकी है उन सबको रिमाइंडर भेजें?',
     'inst.remindSent': '{n} सदस्य को रिमाइंडर भेजा गया',
+    'footer.rights': 'सर्वाधिकार सुरक्षित।',
+    'footer.location': 'गिरिडीह, झारखंड',
+    'footer.made': 'प्रेम से बनाया 💜',
   },
 };
 
