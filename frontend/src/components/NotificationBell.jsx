@@ -20,17 +20,14 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
-  const [pos, setPos] = useState({ top: 56, right: 12 });
+  const [pos, setPos] = useState({ top: 56 });
   const boxRef = useRef(null);
   const btnRef = useRef(null);
 
   function computePos() {
     const r = btnRef.current?.getBoundingClientRect();
     if (!r) return;
-    setPos({
-      top: Math.round(r.bottom + 8),
-      right: Math.max(8, Math.round(window.innerWidth - r.right)),
-    });
+    setPos({ top: Math.round(r.bottom + 8) });
   }
 
   function toggleMenu() {
@@ -116,7 +113,7 @@ export default function NotificationBell() {
 
       {open && (
         <div className="card" style={{
-          position: 'fixed', top: pos.top, right: pos.right, width: 'min(360px, 92vw)', maxHeight: '70vh',
+          position: 'fixed', top: pos.top, right: 10, width: 'min(340px, calc(100vw - 20px))', maxHeight: '70vh',
           overflowY: 'auto', zIndex: 600, padding: 12, margin: 0,
         }}>
           <div className="card-header" style={{ marginBottom: 8 }}>
