@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { apiCall } from '../api.js';
 import { useI18n } from '../i18n.js';
@@ -48,15 +49,6 @@ export default function NotificationBell() {
     load();
     const id = setInterval(load, 30000); // poll every 30s
     return () => clearInterval(id);
-  }, []);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function onClick(e) {
-      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
   // Keep the panel anchored to the bell when the viewport changes
@@ -111,7 +103,7 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 590, background: 'rgba(0,0,0,0.25)' }} />
           <div className="card" style={{
@@ -148,7 +140,8 @@ export default function NotificationBell() {
             </div>
           ))}
         </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
