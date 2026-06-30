@@ -43,6 +43,11 @@ if (!process.env.DB_NAME || !process.env.DB_USER) {
 const app = express();
 app.disable('x-powered-by');
 
+// Render (and most hosts) put the app behind a reverse proxy. Trust the first
+// proxy hop so express-rate-limit / IP logging read the real client IP from
+// X-Forwarded-For (fixes ERR_ERL_UNEXPECTED_X_FORWARDED_FOR).
+app.set('trust proxy', 1);
+
 app.use(helmet());
 
 // CORS: restrict to a comma-separated allowlist (CORS_ORIGIN) when provided,
