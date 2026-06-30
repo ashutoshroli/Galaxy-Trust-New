@@ -169,6 +169,7 @@ export default function Feed() {
   const [editTags, setEditTags] = useState([]);
 
   const [commentText, setCommentText] = useState({});
+  const [commentBusy, setCommentBusy] = useState({});
   const [lightbox, setLightbox] = useState(null); // { images, index }
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -285,12 +286,16 @@ export default function Feed() {
   async function addComment(postId) {
     const text = (commentText[postId] || '').trim();
     if (!text) return;
+    if (commentBusy[postId]) return; // already sending — ignore extra clicks / Enter
+    setCommentBusy((b) => ({ ...b, [postId]: true }));
     try {
       await apiCall(`/feed/${postId}/comments`, { method: 'POST', body: JSON.stringify({ content: text }) });
-      setCommentText({ ...commentText, [postId]: '' });
+      setCommentText((prev) => ({ ...prev, [postId]: '' }));
       load();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setCommentBusy((b) => ({ ...b, [postId]: false }));
     }
   }
 
@@ -452,9 +457,11 @@ export default function Feed() {
                   style={{ margin: 0 }}
                   value={commentText[p.id] || ''}
                   onChange={(e) => setCommentText({ ...commentText, [p.id]: e.target.value })}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addComment(p.id); } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !commentBusy[p.id]) { e.preventDefault(); addComment(p.id); } }}
                 />
-                <button onClick={() => addComment(p.id)}>{t('common.send')}</button>
+                <button onClick={() => addComment(p.id)} disabled={commentBusy[p.id]}>
+                  {commentBusy[p.id] ? t('feed.posting') : t('common.send')}
+                </button>
               </div>
             </div>
           </div>

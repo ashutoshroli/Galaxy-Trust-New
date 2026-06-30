@@ -24,6 +24,7 @@ export default function Staff() {
   const [cashierList, setCashierList] = useState([]);
   const [payCashierAlloc, setPayCashierAlloc] = useState([]);
   const [payResetKey, setPayResetKey] = useState(0);
+  const [paying, setPaying] = useState(false);
 
   function load() {
     apiCall('/staff').then(setList).catch((e) => setError(e.message)).finally(() => setLoading(false));
@@ -86,6 +87,8 @@ export default function Staff() {
 
   async function addPayment(staffId) {
     if (!payForm.amount || parseFloat(payForm.amount) <= 0) return setError(t('field.amount'));
+    if (paying) return;
+    setPaying(true);
     try {
       await apiCall(`/staff/${staffId}/payments`, { method: 'POST', body: JSON.stringify({ ...payForm, cashiers: payCashierAlloc }) });
       const d = await apiCall(`/staff/${staffId}`);
@@ -97,6 +100,8 @@ export default function Staff() {
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setPaying(false);
     }
   }
 
@@ -196,7 +201,7 @@ export default function Staff() {
                                 <input type="number" step="0.01" placeholder={t('field.amount')} style={{ width: 130, margin: 0 }} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
                                 <input type="date" style={{ width: 160, margin: 0 }} value={payForm.payment_date} onChange={(e) => setPayForm({ ...payForm, payment_date: e.target.value })} />
                                 <input placeholder={t('field.remarks')} style={{ width: 180, margin: 0 }} value={payForm.remarks} onChange={(e) => setPayForm({ ...payForm, remarks: e.target.value })} />
-                                <button onClick={() => addPayment(s.id)}>{t('staff.addPayment')}</button>
+                                <button onClick={() => addPayment(s.id)} disabled={paying}>{paying ? t('common.loading') : t('staff.addPayment')}</button>
                               </div>
                               <CashierSplit key={`staff-${s.id}-${payResetKey}`} cashiers={cashierList} total={parseFloat(payForm.amount) || 0} onChange={setPayCashierAlloc} compact />
                             </div>

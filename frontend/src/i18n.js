@@ -229,6 +229,7 @@ export const translations = {
 
     // Feed
     'feed.title': 'Feed',
+    'feed.justNow': 'now',
     'feed.composerPlaceholder': "What's on your mind, {name}?",
     'feed.photos': 'Photos',
     'feed.locationPlaceholder': 'Location (optional)',
@@ -510,6 +511,7 @@ export const translations = {
     'profile.success': 'पासवर्ड सफलतापूर्वक अपडेट हुआ।',
 
     'feed.title': 'फ़ीड',
+    'feed.justNow': 'अभी',
     'feed.composerPlaceholder': 'आप क्या साझा करना चाहेंगे, {name}?',
     'feed.photos': 'फ़ोटो',
     'feed.locationPlaceholder': 'स्थान (वैकल्पिक)',

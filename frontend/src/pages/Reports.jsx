@@ -188,7 +188,7 @@ export default function Reports() {
   function printCashiers() {
     const rows = cashiersRaw.map((c) => `<tr><td>${c.name}</td><td>₹${c.total_in.toLocaleString()}</td><td>₹${c.total_out.toLocaleString()}</td><td>₹${c.balance.toLocaleString()}</td></tr>`).join('');
     printHTML(t('cashier.report'), `
-      <h3>${t('cashier.report')}${rangeNote}</h3>
+      <h3>${t('cashier.report')}</h3>
       <table><thead><tr><th>${t('cashier.cashier')}</th><th>${t('cashier.totalIn')}</th><th>${t('cashier.totalOut')}</th><th>${t('field.balance')}</th></tr></thead>
       <tbody>${rows}</tbody></table>`);
   }

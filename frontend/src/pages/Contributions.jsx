@@ -39,6 +39,8 @@ export default function Contributions() {
   const [addResetKey, setAddResetKey] = useState(0);
   const [editCashierAlloc, setEditCashierAlloc] = useState([]);
   const [editCashierInit, setEditCashierInit] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   function load() {
     apiCall('/contributions').then(setList).catch((e) => setError(e.message)).finally(() => setLoading(false));
@@ -62,6 +64,8 @@ export default function Contributions() {
     if (!selectedMemberId) return setError(t('contrib.selectMember'));
     const entries = Object.entries(installmentAmounts).filter(([, v]) => v !== '' && parseFloat(v) > 0);
     if (entries.length === 0) return setError(t('contrib.amountPaying'));
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const savedReceiptItems = [];
       for (const [installmentId, amt] of entries) {
@@ -97,6 +101,8 @@ export default function Contributions() {
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -125,12 +131,16 @@ export default function Contributions() {
   }
 
   async function saveEdit(id) {
+    if (editSaving) return;
+    setEditSaving(true);
     try {
       await apiCall(`/contributions/${id}`, { method: 'PUT', body: JSON.stringify({ ...editForm, cashiers: editCashierAlloc }) });
       setEditId(null);
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -271,7 +281,7 @@ export default function Contributions() {
           />
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit">{t('contrib.savePayment')}</button>
+            <button type="submit" disabled={submitting}>{submitting ? t('common.loading') : t('contrib.savePayment')}</button>
             <button type="button" className="print-btn" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
           </div>
         </form>
@@ -291,7 +301,7 @@ export default function Contributions() {
             onChange={setEditCashierAlloc}
           />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit">{t('common.saveChanges')}</button>
+            <button type="submit" disabled={editSaving}>{editSaving ? t('common.loading') : t('common.saveChanges')}</button>
             <button type="button" className="print-btn" onClick={() => setEditId(null)}>{t('common.cancel')}</button>
           </div>
         </form>

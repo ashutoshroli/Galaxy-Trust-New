@@ -37,6 +37,9 @@ export default function Expenses() {
   const [editExpCashierAlloc, setEditExpCashierAlloc] = useState([]);
   const [editExpCashierInit, setEditExpCashierInit] = useState([]);
   const [resetKey, setResetKey] = useState(0);
+  const [addingExp, setAddingExp] = useState(false);
+  const [addingStaffPay, setAddingStaffPay] = useState(false);
+  const [editingExp, setEditingExp] = useState(false);
 
   function load() {
     apiCall('/expenses').then(setList).catch((e) => setError(e.message)).finally(() => setLoading(false));
@@ -48,6 +51,8 @@ export default function Expenses() {
 
   async function handleAdd(e) {
     e.preventDefault();
+    if (addingExp) return;
+    setAddingExp(true);
     try {
       await apiCall('/expenses', { method: 'POST', body: JSON.stringify({ ...form, cashiers: expCashierAlloc }) });
       setForm({ amount: '', expense_date: '', category: '', description: '', used_for: '' });
@@ -60,6 +65,8 @@ export default function Expenses() {
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
+    } finally {
+      setAddingExp(false);
     }
   }
 
@@ -67,6 +74,8 @@ export default function Expenses() {
     e.preventDefault();
     if (!staffPayForm.staff_id) return setError(t('exp.selectStaff'));
     if (!staffPayForm.amount || parseFloat(staffPayForm.amount) <= 0) return setError(t('field.amount'));
+    if (addingStaffPay) return;
+    setAddingStaffPay(true);
     try {
       await apiCall(`/staff/${staffPayForm.staff_id}/payments`, {
         method: 'POST',
@@ -82,6 +91,8 @@ export default function Expenses() {
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
+    } finally {
+      setAddingStaffPay(false);
     }
   }
 
@@ -111,6 +122,8 @@ export default function Expenses() {
   }
 
   async function saveEdit(id) {
+    if (editingExp) return;
+    setEditingExp(true);
     try {
       await apiCall(`/expenses/${id}`, { method: 'PUT', body: JSON.stringify({ ...editForm, cashiers: editExpCashierAlloc }) });
       setEditId(null);
@@ -118,6 +131,8 @@ export default function Expenses() {
     } catch (err) {
       setError(err.message);
       toast.error(err.message);
+    } finally {
+      setEditingExp(false);
     }
   }
 
@@ -177,7 +192,7 @@ export default function Expenses() {
           <textarea placeholder={t('field.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <CashierSplit key={`exp-add-${resetKey}`} cashiers={cashierList} total={parseFloat(form.amount) || 0} onChange={setExpCashierAlloc} />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit">{t('common.save')}</button>
+            <button type="submit" disabled={addingExp}>{addingExp ? t('common.loading') : t('common.save')}</button>
             <button type="button" className="print-btn" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
           </div>
         </form>
@@ -196,7 +211,7 @@ export default function Expenses() {
           <textarea placeholder={t('field.remarks')} value={staffPayForm.remarks} onChange={(e) => setStaffPayForm({ ...staffPayForm, remarks: e.target.value })} />
           <CashierSplit key={`staff-pay-${resetKey}`} cashiers={cashierList} total={parseFloat(staffPayForm.amount) || 0} onChange={setStaffCashierAlloc} />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit">{t('common.save')}</button>
+            <button type="submit" disabled={addingStaffPay}>{addingStaffPay ? t('common.loading') : t('common.save')}</button>
             <button type="button" className="print-btn" onClick={() => setShowStaffForm(false)}>{t('common.cancel')}</button>
           </div>
         </form>
@@ -211,7 +226,7 @@ export default function Expenses() {
           <textarea placeholder={t('field.description')} value={editForm.description} onChange={(ev) => setEditForm({ ...editForm, description: ev.target.value })} />
           <CashierSplit key={`exp-edit-${editId}`} cashiers={cashierList} total={parseFloat(editForm.amount) || 0} initial={editExpCashierInit} onChange={setEditExpCashierAlloc} />
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit">{t('common.saveChanges')}</button>
+            <button type="submit" disabled={editingExp}>{editingExp ? t('common.loading') : t('common.saveChanges')}</button>
             <button type="button" className="print-btn" onClick={() => setEditId(null)}>{t('common.cancel')}</button>
           </div>
         </form>
