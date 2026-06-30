@@ -30,16 +30,16 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // Create meeting + attendance list
 // body: { meeting_date, location, subject, description, attendance: [{member_id, present}] }
 router.post('/', canAdd, async (req, res) => {
-  const { meeting_date, location, subject, description, attendance } = req.body;
+  const { meeting_date, location, subject, description, minutes, attendance } = req.body;
   if (!meeting_date) return res.status(400).json({ error: 'meeting_date required' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const meetingResult = await client.query(
-      `INSERT INTO meetings (meeting_date, location, subject, description, added_by)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [meeting_date, location, subject, description, req.user.id]
+      `INSERT INTO meetings (meeting_date, location, subject, description, minutes, added_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [meeting_date, location, subject, description, minutes || null, req.user.id]
     );
     const meeting = meetingResult.rows[0];
 
@@ -66,12 +66,12 @@ router.post('/', canAdd, async (req, res) => {
 });
 
 router.put('/:id', canEdit, async (req, res) => {
-  const { meeting_date, location, subject, description } = req.body;
+  const { meeting_date, location, subject, description, minutes } = req.body;
   const safeDate = meeting_date && meeting_date.trim() !== '' ? meeting_date : null;
   const result = await pool.query(
-    `UPDATE meetings SET meeting_date=COALESCE($1, meeting_date), location=$2, subject=$3, description=$4
-     WHERE id=$5 RETURNING *`,
-    [safeDate, location, subject, description, req.params.id]
+    `UPDATE meetings SET meeting_date=COALESCE($1, meeting_date), location=$2, subject=$3, description=$4, minutes=$5
+     WHERE id=$6 RETURNING *`,
+    [safeDate, location, subject, description, minutes ?? null, req.params.id]
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'Not found' });
   res.json(result.rows[0]);

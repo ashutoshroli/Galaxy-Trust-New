@@ -29,12 +29,13 @@ router.post(
   '/',
   canAdd,
   asyncHandler(async (req, res) => {
-    const { name, relation_name, role, address, aadhar_last4, phone } = req.body;
+    const { name, relation_name, role, address, aadhar_last4, phone, dob, photo } = req.body;
     if (!name || !role) return badRequest(res, 'name and role required');
+    const safeDob = dob && dob.trim() !== '' ? dob : null;
     const result = await pool.query(
-      `INSERT INTO members (name, relation_name, role, address, aadhar_last4, phone)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [name, relation_name, role, address, aadhar_last4, phone]
+      `INSERT INTO members (name, relation_name, role, address, aadhar_last4, phone, dob, photo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo || null]
     );
     res.status(201).json(result.rows[0]);
   })
@@ -45,15 +46,32 @@ router.put(
   '/:id',
   canEdit,
   asyncHandler(async (req, res) => {
-    const { name, relation_name, role, address, aadhar_last4, phone } = req.body;
+    const { name, relation_name, role, address, aadhar_last4, phone, dob, photo, active } = req.body;
+    const safeDob = dob && dob.trim() !== '' ? dob : null;
     const result = await pool.query(
-      `UPDATE members SET name=$1, relation_name=$2, role=$3, address=$4, aadhar_last4=$5, phone=$6
-       WHERE id=$7 RETURNING *`,
-      [name, relation_name, role, address, aadhar_last4, phone, req.params.id]
+      `UPDATE members SET name=$1, relation_name=$2, role=$3, address=$4, aadhar_last4=$5, phone=$6,
+              dob=$7, photo=COALESCE($8, photo), active=COALESCE($9, active)
+       WHERE id=$10 RETURNING *`,
+      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo ?? null, active, req.params.id]
     );
     if (!result.rows[0]) return notFound(res);
     // Keep the linked login account's phone in sync (used for mobile login)
     await pool.query('UPDATE users SET phone=$1 WHERE member_id=$2', [phone || null, req.params.id]);
+    res.json(result.rows[0]);
+  })
+);
+
+// Toggle active/inactive status - superadmin only
+router.patch(
+  '/:id/status',
+  canEdit,
+  asyncHandler(async (req, res) => {
+    const { active } = req.body;
+    const result = await pool.query(
+      'UPDATE members SET active=$1 WHERE id=$2 RETURNING *',
+      [!!active, req.params.id]
+    );
+    if (!result.rows[0]) return notFound(res);
     res.json(result.rows[0]);
   })
 );

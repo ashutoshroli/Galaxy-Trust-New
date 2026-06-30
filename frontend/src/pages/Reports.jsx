@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { apiCall } from '../api.js';
 import { printHTML } from '../printHelper.js';
+import { downloadCSV } from '../utils/csv.js';
 import { useI18n } from '../i18n.js';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function Reports() {
   const { t } = useI18n();
@@ -11,6 +14,10 @@ export default function Reports() {
   const [cashiersRaw, setCashiersRaw] = useState([]);
   const [expandedMember, setExpandedMember] = useState(null);
   const [error, setError] = useState('');
+
+  const nowYear = new Date().getFullYear();
+  const [annualYear, setAnnualYear] = useState(nowYear);
+  const [annual, setAnnual] = useState(null);
 
   // Date range filter (applies to every report)
   const [dateFrom, setDateFrom] = useState('');
@@ -34,6 +41,47 @@ export default function Reports() {
     apiCall('/expenses').then(setExpensesRaw).catch(() => {});
     apiCall('/reports/cashiers').then(setCashiersRaw).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    apiCall(`/reports/annual?year=${annualYear}`).then(setAnnual).catch(() => {});
+  }, [annualYear]);
+
+  function printAnnual() {
+    if (!annual) return;
+    const rows = annual.months.map((m) =>
+      `<tr><td>${MONTHS[m.month - 1]}</td><td>₹${m.income.toLocaleString()}</td><td>₹${m.expense.toLocaleString()}</td><td>₹${m.staff.toLocaleString()}</td><td>₹${m.out.toLocaleString()}</td><td>₹${m.net.toLocaleString()}</td></tr>`
+    ).join('');
+    printHTML(`${t('rep.annual')} ${annual.year}`, `
+      <h3>${t('rep.annual')} — ${annual.year}</h3>
+      <p class="muted">${t('rep.totalIncome')}: ₹${annual.total_income.toLocaleString()} | ${t('rep.totalOut')}: ₹${annual.total_out.toLocaleString()} | ${t('rep.net')}: ₹${annual.net.toLocaleString()}</p>
+      <table><thead><tr><th>${t('rep.month')}</th><th>${t('dash.income')}</th><th>${t('dash.otherExpense')}</th><th>${t('dash.staffPaid')}</th><th>${t('rep.totalOut')}</th><th>${t('rep.net')}</th></tr></thead>
+      <tbody>${rows}</tbody></table>`);
+  }
+
+  function exportAnnualCSV() {
+    if (!annual) return;
+    downloadCSV(`annual-${annual.year}.csv`,
+      [t('rep.month'), t('dash.income'), t('dash.otherExpense'), t('dash.staffPaid'), t('rep.totalOut'), t('rep.net')],
+      annual.months.map((m) => [MONTHS[m.month - 1], m.income, m.expense, m.staff, m.out, m.net]));
+  }
+
+  function exportCashiersCSV() {
+    downloadCSV('cashiers.csv',
+      [t('cashier.cashier'), t('cashier.totalIn'), t('cashier.totalOut'), t('field.balance')],
+      cashiersRaw.map((c) => [c.name, c.total_in, c.total_out, c.balance]));
+  }
+
+  function exportExpenseCSV() {
+    downloadCSV('expense-report.csv',
+      [t('field.category'), t('field.amount'), t('rep.entries')],
+      expenseByCat.map((e) => [e.category, e.total_amount, e.num_entries]));
+  }
+
+  function exportContribCSV() {
+    downloadCSV('contribution-report.csv',
+      [t('field.name'), t('field.role'), t('rep.totalContributed'), t('rep.payments')],
+      contrib.map((c) => [c.name, t(`role.${c.role}`), c.total_contributed, c.num_payments]));
+  }
 
   function toggleSection(key) {
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -193,10 +241,11 @@ export default function Reports() {
       <tbody>${rows}</tbody></table>`);
   }
 
-  const SectionHeader = ({ title, sectionKey, onPrint }) => (
+  const SectionHeader = ({ title, sectionKey, onPrint, onCsv }) => (
     <div className="card-header">
       <h3>{title}</h3>
       <div className="card-header-actions">
+        {onCsv && <button className="print-btn" onClick={onCsv}>⬇️ CSV</button>}
         {onPrint && <button className="print-btn" onClick={onPrint}>🖨 {t('common.print')}</button>}
         <button className="toggle-btn" onClick={() => toggleSection(sectionKey)}>{open[sectionKey] ? '−' : '+'}</button>
       </div>
@@ -217,6 +266,45 @@ export default function Reports() {
           <input type="date" style={{ maxWidth: 170, margin: 0 }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           {hasFilter && <button onClick={() => { setDateFrom(''); setDateTo(''); }}>{t('common.clearFilters')}</button>}
         </div>
+      </div>
+
+      {/* Annual / Yearly Statement */}
+      <div className="card">
+        <div className="card-header">
+          <h3>{t('rep.annual')}</h3>
+          <div className="card-header-actions">
+            <select value={annualYear} onChange={(e) => setAnnualYear(parseInt(e.target.value, 10))} style={{ margin: 0, maxWidth: 110 }}>
+              {Array.from({ length: 6 }).map((_, i) => {
+                const y = nowYear - i;
+                return <option key={y} value={y}>{y}</option>;
+              })}
+            </select>
+            <button className="print-btn" onClick={exportAnnualCSV}>⬇️ CSV</button>
+            <button className="print-btn" onClick={printAnnual}>🖨 {t('common.print')}</button>
+          </div>
+        </div>
+        {annual && (
+          <>
+            <p className="muted">
+              {t('rep.totalIncome')}: ₹{annual.total_income.toLocaleString()} · {t('rep.totalOut')}: ₹{annual.total_out.toLocaleString()} · {t('rep.net')}: <strong style={{ color: annual.net >= 0 ? '#059669' : '#dc2626' }}>₹{annual.net.toLocaleString()}</strong>
+            </p>
+            <table>
+              <thead><tr><th>{t('rep.month')}</th><th>{t('dash.income')}</th><th>{t('dash.otherExpense')}</th><th>{t('dash.staffPaid')}</th><th>{t('rep.totalOut')}</th><th>{t('rep.net')}</th></tr></thead>
+              <tbody>
+                {annual.months.map((m) => (
+                  <tr key={m.month}>
+                    <td>{MONTHS[m.month - 1]}</td>
+                    <td style={{ color: '#059669' }}>₹{m.income.toLocaleString()}</td>
+                    <td>₹{m.expense.toLocaleString()}</td>
+                    <td>₹{m.staff.toLocaleString()}</td>
+                    <td style={{ color: '#dc2626' }}>₹{m.out.toLocaleString()}</td>
+                    <td style={{ fontWeight: 600 }}>₹{m.net.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
 
       {/* Installment Plans by Member */}
@@ -339,7 +427,7 @@ export default function Reports() {
 
       {/* Contribution Report */}
       <div className="card">
-        <SectionHeader title={t('rep.contributionReport')} sectionKey="contrib" onPrint={printContrib} />
+        <SectionHeader title={t('rep.contributionReport')} sectionKey="contrib" onPrint={printContrib} onCsv={exportContribCSV} />
         {open.contrib && (
           <table>
             <thead><tr><th>{t('field.name')}</th><th>{t('field.role')}</th><th>{t('rep.totalContributed')}</th><th>{t('rep.payments')}</th></tr></thead>
@@ -359,7 +447,7 @@ export default function Reports() {
 
       {/* Expense Report */}
       <div className="card">
-        <SectionHeader title={t('rep.expenseReport')} sectionKey="expense" onPrint={printExpense} />
+        <SectionHeader title={t('rep.expenseReport')} sectionKey="expense" onPrint={printExpense} onCsv={exportExpenseCSV} />
         {open.expense && (
           <table>
             <thead><tr><th>{t('field.category')}</th><th>{t('field.amount')}</th><th>{t('rep.entries')}</th></tr></thead>
@@ -378,7 +466,7 @@ export default function Reports() {
 
       {/* Cashier Report */}
       <div className="card">
-        <SectionHeader title={t('cashier.report')} sectionKey="cashiers" onPrint={printCashiers} />
+        <SectionHeader title={t('cashier.report')} sectionKey="cashiers" onPrint={printCashiers} onCsv={exportCashiersCSV} />
         {open.cashiers && (
           <table>
             <thead><tr><th>{t('cashier.cashier')}</th><th>{t('cashier.totalIn')}</th><th>{t('cashier.totalOut')}</th><th>{t('field.balance')}</th></tr></thead>

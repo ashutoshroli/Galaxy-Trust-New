@@ -319,4 +319,88 @@ router.get('/contribution-detail/:contributionId', asyncHandler(async (req, res)
   res.json({ contribution: contribResult.rows[0] });
 }));
 
+// Annual / yearly statement - month-wise contributions vs expenses+staff for a year
+router.get('/annual', asyncHandler(async (req, res) => {
+  const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+
+  const contribByMonth = await pool.query(
+    `SELECT EXTRACT(MONTH FROM contribution_date)::int AS m, COALESCE(SUM(amount),0) AS total
+     FROM contributions WHERE EXTRACT(YEAR FROM contribution_date) = $1 GROUP BY m`,
+    [year]
+  );
+  const expenseByMonth = await pool.query(
+    `SELECT EXTRACT(MONTH FROM expense_date)::int AS m, COALESCE(SUM(amount),0) AS total
+     FROM expenses WHERE EXTRACT(YEAR FROM expense_date) = $1 GROUP BY m`,
+    [year]
+  );
+  const staffByMonth = await pool.query(
+    `SELECT EXTRACT(MONTH FROM payment_date)::int AS m, COALESCE(SUM(amount),0) AS total
+     FROM staff_payments WHERE EXTRACT(YEAR FROM payment_date) = $1 GROUP BY m`,
+    [year]
+  );
+
+  const cMap = {}; contribByMonth.rows.forEach((r) => { cMap[r.m] = parseFloat(r.total); });
+  const eMap = {}; expenseByMonth.rows.forEach((r) => { eMap[r.m] = parseFloat(r.total); });
+  const sMap = {}; staffByMonth.rows.forEach((r) => { sMap[r.m] = parseFloat(r.total); });
+
+  const months = [];
+  let totalIn = 0; let totalOut = 0;
+  for (let m = 1; m <= 12; m++) {
+    const income = cMap[m] || 0;
+    const expense = eMap[m] || 0;
+    const staff = sMap[m] || 0;
+    const out = expense + staff;
+    totalIn += income; totalOut += out;
+    months.push({ month: m, income, expense, staff, out, net: income - out });
+  }
+
+  res.json({ year, months, total_income: totalIn, total_out: totalOut, net: totalIn - totalOut });
+}));
+
+// Monthly trend (last 12 months from today) - income vs out
+router.get('/monthly-trend', asyncHandler(async (req, res) => {
+  const result = await pool.query(`
+    WITH months AS (
+      SELECT to_char(date_trunc('month', (CURRENT_DATE - (n || ' month')::interval)), 'YYYY-MM') AS ym
+      FROM generate_series(0, 11) AS n
+    )
+    SELECT m.ym AS month,
+      COALESCE((SELECT SUM(amount) FROM contributions c WHERE to_char(c.contribution_date,'YYYY-MM') = m.ym), 0) AS income,
+      COALESCE((SELECT SUM(amount) FROM expenses e WHERE to_char(e.expense_date,'YYYY-MM') = m.ym), 0)
+        + COALESCE((SELECT SUM(amount) FROM staff_payments sp WHERE to_char(sp.payment_date,'YYYY-MM') = m.ym), 0) AS out
+    FROM months m
+    ORDER BY m.ym ASC
+  `);
+  res.json(result.rows.map((r) => ({ month: r.month, income: parseFloat(r.income), out: parseFloat(r.out) })));
+}));
+
+// Upcoming birthdays in the next N days (default 30)
+router.get('/upcoming-birthdays', asyncHandler(async (req, res) => {
+  const days = Math.min(parseInt(req.query.days, 10) || 30, 366);
+  const result = await pool.query(
+    `SELECT id, name, role, dob,
+            to_char(dob, 'DD Mon') AS dob_label,
+            (date_part('doy',
+               make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int, EXTRACT(MONTH FROM dob)::int, EXTRACT(DAY FROM dob)::int)
+             ) - date_part('doy', CURRENT_DATE)) AS day_diff
+     FROM members
+     WHERE dob IS NOT NULL AND active = true`,
+    []
+  );
+  // Compute "days until next birthday" in JS to handle year wrap cleanly
+  const today = new Date();
+  const upcoming = result.rows
+    .map((m) => {
+      const d = new Date(m.dob);
+      let next = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      if (next < startOfToday) next = new Date(today.getFullYear() + 1, d.getMonth(), d.getDate());
+      const daysUntil = Math.round((next - startOfToday) / 86400000);
+      return { id: m.id, name: m.name, role: m.role, dob_label: m.dob_label, days_until: daysUntil };
+    })
+    .filter((m) => m.days_until <= days)
+    .sort((a, b) => a.days_until - b.days_until);
+  res.json(upcoming);
+}));
+
 export default router;

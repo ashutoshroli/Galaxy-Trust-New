@@ -300,6 +300,74 @@ export const translations = {
     'cashier.report': 'Cashier Report',
     'cashier.gaveToCashiers': 'Money Given To Cashier(s)',
     'cashier.asCashier': 'As Cashier',
+
+    // Navigation (new features)
+    'nav.search': 'Search',
+    'nav.announcements': 'Notice Board',
+    'nav.activity': 'Activity Log',
+
+    // Announcements
+    'ann.title': 'Notice Board',
+    'ann.add': 'New Notice',
+    'ann.edit': 'Edit Notice',
+    'ann.titleField': 'Title',
+    'ann.bodyField': 'Write the notice…',
+    'ann.pin': 'Pin to top',
+    'ann.none': 'No notices yet.',
+    'ann.saved': 'Notice saved',
+    'ann.deleted': 'Notice deleted',
+    'ann.titleRequired': 'Title is required',
+
+    // Activity log
+    'activity.title': 'Activity Log',
+    'activity.user': 'User',
+    'activity.action': 'Action',
+    'activity.ip': 'IP Address',
+    'activity.allActions': 'All actions',
+    'activity.total': 'Total',
+
+    // Backup
+    'backup.button': 'Backup',
+    'backup.done': 'Backup downloaded',
+
+    // Search
+    'search.title': 'Search',
+    'search.placeholder': 'Search members, contributions, expenses…',
+    'search.minChars': 'Type at least 2 characters.',
+    'search.openPage': 'Open page',
+    'search.found': '{n} result(s) found',
+
+    // Members (new)
+    'members.dob': 'Date of Birth',
+    'members.photo': 'Photo',
+    'members.active': 'Active',
+    'members.inactive': 'Inactive',
+    'members.allStatus': 'All',
+    'members.activate': 'Activate',
+    'members.deactivate': 'Deactivate',
+    'members.idCard': 'ID Card',
+    'members.passbook': 'Passbook',
+    'members.imageOnly': 'Please select an image file.',
+    'members.imageError': 'Could not load the image.',
+
+    // Dashboard (new)
+    'dash.monthlyTrend': 'Monthly Trend (last 12 months)',
+    'dash.income': 'Income',
+    'dash.outflow': 'Outflow',
+    'dash.birthdays': 'Upcoming Birthdays',
+    'dash.today': 'Today 🎉',
+    'dash.inDays': 'in {n} day(s)',
+
+    // Reports (new)
+    'rep.annual': 'Annual Statement',
+    'rep.month': 'Month',
+    'rep.totalIncome': 'Total Income',
+    'rep.totalOut': 'Total Outflow',
+    'rep.net': 'Net',
+
+    // Meetings (new)
+    'meet.minutes': 'Minutes of Meeting',
+    'meet.mom': 'Minutes (MOM)',
   },
 
   hi: {
@@ -582,6 +650,74 @@ export const translations = {
     'cashier.report': 'कैशियर रिपोर्ट',
     'cashier.gaveToCashiers': 'कैशियर को दी गई राशि',
     'cashier.asCashier': 'कैशियर के रूप में',
+
+    // Navigation (new features)
+    'nav.search': 'खोज',
+    'nav.announcements': 'सूचना पट्ट',
+    'nav.activity': 'गतिविधि लॉग',
+
+    // Announcements
+    'ann.title': 'सूचना पट्ट',
+    'ann.add': 'नई सूचना',
+    'ann.edit': 'सूचना संपादित करें',
+    'ann.titleField': 'शीर्षक',
+    'ann.bodyField': 'सूचना लिखें…',
+    'ann.pin': 'ऊपर पिन करें',
+    'ann.none': 'अभी तक कोई सूचना नहीं।',
+    'ann.saved': 'सूचना सहेजी गई',
+    'ann.deleted': 'सूचना हटाई गई',
+    'ann.titleRequired': 'शीर्षक आवश्यक है',
+
+    // Activity log
+    'activity.title': 'गतिविधि लॉग',
+    'activity.user': 'उपयोगकर्ता',
+    'activity.action': 'क्रिया',
+    'activity.ip': 'IP पता',
+    'activity.allActions': 'सभी क्रियाएं',
+    'activity.total': 'कुल',
+
+    // Backup
+    'backup.button': 'बैकअप',
+    'backup.done': 'बैकअप डाउनलोड हुआ',
+
+    // Search
+    'search.title': 'खोज',
+    'search.placeholder': 'सदस्य, योगदान, व्यय खोजें…',
+    'search.minChars': 'कम से कम 2 अक्षर लिखें।',
+    'search.openPage': 'पृष्ठ खोलें',
+    'search.found': '{n} परिणाम मिले',
+
+    // Members (new)
+    'members.dob': 'जन्म तिथि',
+    'members.photo': 'फ़ोटो',
+    'members.active': 'सक्रिय',
+    'members.inactive': 'निष्क्रिय',
+    'members.allStatus': 'सभी',
+    'members.activate': 'सक्रिय करें',
+    'members.deactivate': 'निष्क्रिय करें',
+    'members.idCard': 'पहचान पत्र',
+    'members.passbook': 'पासबुक',
+    'members.imageOnly': 'कृपया एक छवि फ़ाइल चुनें।',
+    'members.imageError': 'छवि लोड नहीं हो सकी।',
+
+    // Dashboard (new)
+    'dash.monthlyTrend': 'मासिक रुझान (पिछले 12 महीने)',
+    'dash.income': 'आय',
+    'dash.outflow': 'व्यय',
+    'dash.birthdays': 'आगामी जन्मदिन',
+    'dash.today': 'आज 🎉',
+    'dash.inDays': '{n} दिन में',
+
+    // Reports (new)
+    'rep.annual': 'वार्षिक विवरण',
+    'rep.month': 'महीना',
+    'rep.totalIncome': 'कुल आय',
+    'rep.totalOut': 'कुल व्यय',
+    'rep.net': 'शुद्ध',
+
+    // Meetings (new)
+    'meet.minutes': 'बैठक का कार्यवृत्त',
+    'meet.mom': 'कार्यवृत्त (MOM)',
   },
 };
 

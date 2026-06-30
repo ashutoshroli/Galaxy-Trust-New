@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { apiCall } from '../api.js';
 import { canAdd, canEdit, canDelete, canEditDelete } from '../permissions.js';
+import { printHTML } from '../printHelper.js';
 import { useI18n } from '../i18n.js';
 import Modal from '../components/Modal.jsx';
+
+const TRUST_NAME = 'Galaxy Educational and Social Welfare Trust';
 
 export default function Meetings() {
   const { t } = useI18n();
@@ -11,7 +14,7 @@ export default function Meetings() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ meeting_date: '', location: '', subject: '', description: '' });
+  const [form, setForm] = useState({ meeting_date: '', location: '', subject: '', description: '', minutes: '' });
   const [attendance, setAttendance] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -35,7 +38,7 @@ export default function Meetings() {
     try {
       const attendanceArr = members.map((m) => ({ member_id: m.id, present: !!attendance[m.id] }));
       await apiCall('/meetings', { method: 'POST', body: JSON.stringify({ ...form, attendance: attendanceArr }) });
-      setForm({ meeting_date: '', location: '', subject: '', description: '' });
+      setForm({ meeting_date: '', location: '', subject: '', description: '', minutes: '' });
       setAttendance({});
       setShowForm(false);
       load();
@@ -69,6 +72,26 @@ export default function Meetings() {
     }
   }
 
+  function printMOM(d) {
+    if (!d) return;
+    const present = d.attendance.filter((a) => a.present).map((a) => a.name);
+    const absent = d.attendance.filter((a) => !a.present).map((a) => a.name);
+    printHTML(`MOM - ${d.subject || d.meeting_date?.slice(0, 10)}`, `
+      <h3>${t('meet.mom')}</h3>
+      <p class="muted">
+        <strong>${t('field.date')}:</strong> ${d.meeting_date?.slice(0, 10) || '-'} &nbsp;|&nbsp;
+        <strong>${t('field.location')}:</strong> ${d.location || '-'}
+      </p>
+      <p><strong>${t('field.subject')}:</strong> ${d.subject || '-'}</p>
+      ${d.description ? `<p><strong>${t('field.description')}:</strong> ${d.description}</p>` : ''}
+      <div class="section-title"><h3>${t('meet.minutes')}</h3></div>
+      <p style="white-space:pre-wrap;">${d.minutes || '-'}</p>
+      <div class="section-title"><h3>${t('meet.attendance')}</h3></div>
+      <p><strong>${t('meet.present')} (${present.length}):</strong> ${present.join(', ') || '-'}</p>
+      <p><strong>${t('meet.absent')} (${absent.length}):</strong> ${absent.join(', ') || '-'}</p>
+    `);
+  }
+
   return (
     <div>
       <h2>{t('meet.title')}</h2>
@@ -87,6 +110,7 @@ export default function Meetings() {
           <input placeholder={t('field.location')} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
           <input placeholder={t('field.subject')} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
           <textarea placeholder={t('field.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <textarea placeholder={t('meet.minutes')} style={{ minHeight: 100 }} value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value })} />
 
           <p><strong>{t('meet.attendance')}</strong></p>
           <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10, border: '1px solid var(--glass-border)', borderRadius: 8, padding: 8 }}>
@@ -148,11 +172,23 @@ export default function Meetings() {
                   {expandedId === m.id && detail && (
                     <tr>
                       <td colSpan={6}>
-                        <strong>{t('meet.present')}:</strong>{' '}
-                        {detail.attendance.filter((a) => a.present).map((a) => a.name).join(', ') || t('common.none')}
-                        <br />
-                        <strong>{t('meet.absent')}:</strong>{' '}
-                        {detail.attendance.filter((a) => !a.present).map((a) => a.name).join(', ') || t('common.none')}
+                        <div className="card" style={{ background: 'var(--subcard-bg)' }}>
+                          <div className="card-header">
+                            <h3 style={{ margin: 0 }}>{detail.subject || t('meet.title')}</h3>
+                            <button className="print-btn" onClick={() => printMOM(detail)}>🖨 {t('meet.mom')}</button>
+                          </div>
+                          {detail.minutes && (
+                            <div style={{ margin: '10px 0' }}>
+                              <strong>{t('meet.minutes')}:</strong>
+                              <p style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{detail.minutes}</p>
+                            </div>
+                          )}
+                          <strong>{t('meet.present')}:</strong>{' '}
+                          {detail.attendance.filter((a) => a.present).map((a) => a.name).join(', ') || t('common.none')}
+                          <br />
+                          <strong>{t('meet.absent')}:</strong>{' '}
+                          {detail.attendance.filter((a) => !a.present).map((a) => a.name).join(', ') || t('common.none')}
+                        </div>
                       </td>
                     </tr>
                   )}

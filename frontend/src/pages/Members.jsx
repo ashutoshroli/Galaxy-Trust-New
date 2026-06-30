@@ -1,11 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { apiCall } from '../api.js';
-import { canAdd, canEdit, canDelete, canEditDelete } from '../permissions.js';
+import { canAdd, canEdit, canDelete, canEditDelete, isSuperAdmin } from '../permissions.js';
 import { printHTML } from '../printHelper.js';
+import { downloadCSV } from '../utils/csv.js';
 import { useI18n } from '../i18n.js';
 import Modal from '../components/Modal.jsx';
 
 const ROLE_OPTIONS = ['trustee', 'president', 'secretary', 'treasurer'];
+const TRUST_NAME = 'Galaxy Educational and Social Welfare Trust';
+
+// Resize + compress an image file to a base64 data URL (for member photo).
+function resizeImage(file, maxW = 400, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+const EMPTY_FORM = { name: '', relation_name: '', role: 'trustee', address: '', phone: '', dob: '', photo: '' };
 
 export default function Members() {
   const { t } = useI18n();
@@ -13,10 +41,10 @@ export default function Members() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', relation_name: '', role: 'trustee', address: '', phone: '' });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
 
   const [editId, setEditId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', relation_name: '', role: 'trustee', address: '', phone: '' });
+  const [editForm, setEditForm] = useState({ ...EMPTY_FORM });
 
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -24,6 +52,8 @@ export default function Members() {
   const [detailError, setDetailError] = useState('');
 
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [saving, setSaving] = useState(false);
 
   function load() {
     apiCall('/members').then(setMembers).catch((e) => setError(e.message)).finally(() => setLoading(false));
@@ -32,13 +62,17 @@ export default function Members() {
 
   async function handleAdd(e) {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
       await apiCall('/members', { method: 'POST', body: JSON.stringify(form) });
-      setForm({ name: '', relation_name: '', role: 'trustee', address: '', phone: '' });
+      setForm({ ...EMPTY_FORM });
       setShowForm(false);
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -46,6 +80,15 @@ export default function Members() {
     if (!window.confirm(t('common.confirmDelete'))) return;
     try {
       await apiCall(`/members/${id}`, { method: 'DELETE' });
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function toggleStatus(m) {
+    try {
+      await apiCall(`/members/${m.id}/status`, { method: 'PATCH', body: JSON.stringify({ active: !m.active }) });
       load();
     } catch (err) {
       setError(err.message);
@@ -60,16 +103,35 @@ export default function Members() {
       role: m.role || 'trustee',
       address: m.address || '',
       phone: m.phone || '',
+      dob: m.dob ? m.dob.slice(0, 10) : '',
+      photo: m.photo || '',
     });
   }
 
   async function saveEdit(id) {
+    if (saving) return;
+    setSaving(true);
     try {
       await apiCall(`/members/${id}`, { method: 'PUT', body: JSON.stringify(editForm) });
       setEditId(null);
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function pickPhoto(e, current, setter) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return setError(t('members.imageOnly'));
+    try {
+      const dataUrl = await resizeImage(file);
+      setter({ ...current, photo: dataUrl });
+    } catch {
+      setError(t('members.imageError'));
     }
   }
 
@@ -134,6 +196,61 @@ export default function Members() {
     `);
   }
 
+  function printIdCard(m) {
+    const photo = m.photo
+      ? `<img src="${m.photo}" style="width:96px;height:96px;object-fit:cover;border-radius:10px;border:2px solid #1e3a5f;" />`
+      : `<div style="width:96px;height:96px;border-radius:10px;background:#e5e7eb;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:12px;">No Photo</div>`;
+    printHTML(`ID Card - ${m.name}`, `
+      <div style="max-width:400px;border:2px solid #1e3a5f;border-radius:12px;padding:16px;margin-top:10px;">
+        <div style="text-align:center;border-bottom:2px solid #1e3a5f;padding-bottom:8px;margin-bottom:12px;font-weight:700;color:#1e3a5f;">MEMBER ID CARD</div>
+        <div style="display:flex;gap:14px;align-items:center;">
+          ${photo}
+          <div>
+            <div style="font-size:18px;font-weight:700;">${m.name}</div>
+            <div style="color:#6b7280;">${m.relation_name || ''}</div>
+            <div style="margin-top:6px;"><span class="badge" style="background:#1e3a5f;">${t(`role.${m.role}`)}</span></div>
+            <div style="margin-top:6px;font-size:13px;">ID: ${m.id}${m.phone ? ' &nbsp;·&nbsp; 📞 ' + m.phone : ''}</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:#6b7280;">${m.address || ''}</div>
+      </div>
+    `);
+  }
+
+  function printPassbook() {
+    if (!detail) return;
+    const m = members.find((x) => x.id === detail.member.id) || detail.member;
+    let running = 0;
+    const contribRows = detail.contributions.map((c) => {
+      running += Number(c.amount);
+      return `<tr><td>${c.date ? c.date.slice(0, 10) : '-'}</td><td>${c.installment_type || '-'}</td><td>₹${Number(c.amount).toLocaleString()}</td><td>${c.mode || '-'}</td><td>₹${running.toLocaleString()}</td></tr>`;
+    }).join('');
+    const instRows = detail.installments.map((i) =>
+      `<tr><td>${i.type}</td><td>₹${parseFloat(i.total_amount).toLocaleString()}</td><td>₹${parseFloat(i.paid_amount).toLocaleString()}</td><td>₹${parseFloat(i.balance).toLocaleString()}</td><td>${i.due_date ? i.due_date.slice(0, 10) : '-'}</td></tr>`
+    ).join('');
+    printHTML(`Passbook - ${detail.member.name}`, `
+      <h3>${t('members.passbook')} — ${detail.member.name}</h3>
+      <p class="muted">${t(`role.${detail.member.role}`)}${m.phone ? ' · 📞 ' + m.phone : ''} · ${t('members.totalGiven')}: ₹${detail.total_given.toLocaleString()}</p>
+      <div class="section-title"><h3>${t('members.installmentPlans')}</h3></div>
+      <table><thead><tr><th>${t('field.type')}</th><th>${t('field.total')}</th><th>${t('field.paid')}</th><th>${t('field.balance')}</th><th>${t('field.dueDate')}</th></tr></thead>
+      <tbody>${instRows || `<tr><td colspan="5">${t('common.noRecords')}</td></tr>`}</tbody></table>
+      <div class="section-title"><h3>${t('members.contributionsHeading')}</h3></div>
+      <table><thead><tr><th>${t('field.date')}</th><th>${t('contrib.installmentType')}</th><th>${t('field.amount')}</th><th>${t('field.mode')}</th><th>${t('field.balance')}</th></tr></thead>
+      <tbody>${contribRows || `<tr><td colspan="5">${t('common.noRecords')}</td></tr>`}</tbody></table>
+    `);
+  }
+
+  function exportMembersCSV() {
+    downloadCSV(
+      'members.csv',
+      [t('field.name'), t('field.relation'), t('field.role'), t('field.phone'), t('field.address'), t('members.dob'), t('field.status')],
+      members.map((m) => [
+        m.name, m.relation_name || '', t(`role.${m.role}`), m.phone || '', m.address || '',
+        m.dob ? m.dob.slice(0, 10) : '', m.active === false ? t('members.inactive') : t('members.active'),
+      ])
+    );
+  }
+
   const RoleSelect = ({ value, onChange }) => (
     <select value={value} onChange={onChange}>
       {ROLE_OPTIONS.map((r) => (
@@ -161,8 +278,18 @@ export default function Members() {
           <RoleSelect value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
           <input placeholder={t('field.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <input placeholder={t('field.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <label className="muted" style={{ fontSize: 13 }}>{t('members.dob')}</label>
+          <input type="date" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
+          <div className="actions-row" style={{ alignItems: 'center' }}>
+            {form.photo && <img src={form.photo} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8 }} />}
+            <label className="print-btn" style={{ cursor: 'pointer', margin: 0 }}>
+              📷 {t('members.photo')}
+              <input type="file" accept="image/*" onChange={(e) => pickPhoto(e, form, setForm)} style={{ display: 'none' }} />
+            </label>
+            {form.photo && <button type="button" className="print-btn" onClick={() => setForm({ ...form, photo: '' })}>{t('common.delete')}</button>}
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit">{t('common.save')}</button>
+            <button type="submit" disabled={saving}>{saving ? t('common.loading') : t('common.save')}</button>
             <button type="button" className="print-btn" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
           </div>
         </form>
@@ -175,28 +302,46 @@ export default function Members() {
           <RoleSelect value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })} />
           <input placeholder={t('field.address')} value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
           <input placeholder={t('field.phone')} value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+          <label className="muted" style={{ fontSize: 13 }}>{t('members.dob')}</label>
+          <input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} />
+          <div className="actions-row" style={{ alignItems: 'center' }}>
+            {editForm.photo && <img src={editForm.photo} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8 }} />}
+            <label className="print-btn" style={{ cursor: 'pointer', margin: 0 }}>
+              📷 {t('members.photo')}
+              <input type="file" accept="image/*" onChange={(e) => pickPhoto(e, editForm, setEditForm)} style={{ display: 'none' }} />
+            </label>
+            {editForm.photo && <button type="button" className="print-btn" onClick={() => setEditForm({ ...editForm, photo: '' })}>{t('common.delete')}</button>}
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit">{t('common.saveChanges')}</button>
+            <button type="submit" disabled={saving}>{saving ? t('common.loading') : t('common.saveChanges')}</button>
             <button type="button" className="print-btn" onClick={() => setEditId(null)}>{t('common.cancel')}</button>
           </div>
         </form>
       </Modal>
 
-      <div className="actions-row">
-        <input placeholder={t('members.searchPlaceholder')} style={{ maxWidth: 280, margin: 0 }} value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="actions-row" style={{ flexWrap: 'wrap' }}>
+        <input placeholder={t('members.searchPlaceholder')} style={{ maxWidth: 260, margin: 0 }} value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 150, margin: 0 }}>
+          <option value="active">{t('members.active')}</option>
+          <option value="inactive">{t('members.inactive')}</option>
+          <option value="all">{t('members.allStatus')}</option>
+        </select>
+        <button className="print-btn" onClick={exportMembersCSV}>⬇️ CSV</button>
       </div>
 
       <div className="card">
         <table>
           <thead>
             <tr>
-              <th>{t('field.name')}</th><th>{t('field.relation')}</th><th>{t('field.role')}</th><th>{t('field.address')}</th><th>{t('field.phone')}</th>
+              <th>{t('field.name')}</th><th>{t('field.relation')}</th><th>{t('field.role')}</th><th>{t('field.status')}</th><th>{t('field.address')}</th><th>{t('field.phone')}</th>
               {canEditDelete() && <th>{t('common.actions')}</th>}
             </tr>
           </thead>
           <tbody>
             {members
               .filter((m) => {
+                if (statusFilter === 'active' && m.active === false) return false;
+                if (statusFilter === 'inactive' && m.active !== false) return false;
                 const q = search.toLowerCase();
                 if (!q) return true;
                 return (
@@ -210,14 +355,27 @@ export default function Members() {
               .map((m) => (
                 <React.Fragment key={m.id}>
                   <tr className="clickable-row" onClick={() => toggleExpand(m)}>
-                    <td>{m.name}</td>
+                    <td>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {m.photo
+                          ? <img src={m.photo} alt="" style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: '50%' }} />
+                          : <span className="brand-logo" style={{ width: 30, height: 30 }} aria-hidden="true" />}
+                        {m.name}
+                      </span>
+                    </td>
                     <td>{m.relation_name}</td>
                     <td><span className={`badge ${m.role}`}>{t(`role.${m.role}`)}</span></td>
+                    <td>
+                      {m.active === false
+                        ? <span className="badge" style={{ background: '#6b7280' }}>{t('members.inactive')}</span>
+                        : <span className="badge" style={{ background: '#059669' }}>{t('members.active')}</span>}
+                    </td>
                     <td>{m.address}</td>
                     <td>{m.phone}</td>
                     {canEditDelete() && (
-                      <td style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                      <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
                         {canEdit() && <button onClick={() => startEdit(m)}>{t('common.edit')}</button>}
+                        {canEdit() && <button className="print-btn" onClick={() => toggleStatus(m)}>{m.active === false ? t('members.activate') : t('members.deactivate')}</button>}
                         {canDelete() && <button onClick={() => handleDelete(m.id)}>{t('common.delete')}</button>}
                       </td>
                     )}
@@ -225,7 +383,7 @@ export default function Members() {
 
                   {expandedId === m.id && (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <div className="card" style={{ background: 'var(--subcard-bg)' }}>
                           {detailLoading && <p className="muted">{t('common.loading')}</p>}
                           {detailError && <div className="error-text">{detailError}</div>}
@@ -233,7 +391,11 @@ export default function Members() {
                             <>
                               <div className="card-header">
                                 <h3>{detail.member.name} — {t('members.detailTitle')}</h3>
-                                <button className="print-btn" onClick={printMemberDetail}>🖨 {t('common.print')}</button>
+                                <div className="card-header-actions">
+                                  <button className="print-btn" onClick={() => printIdCard(m)}>🪪 {t('members.idCard')}</button>
+                                  <button className="print-btn" onClick={printPassbook}>📖 {t('members.passbook')}</button>
+                                  <button className="print-btn" onClick={printMemberDetail}>🖨 {t('common.print')}</button>
+                                </div>
                               </div>
                               <p className="muted">{t('members.totalGiven')}: ₹{detail.total_given.toLocaleString()}</p>
 

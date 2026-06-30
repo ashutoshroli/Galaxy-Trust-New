@@ -13,6 +13,9 @@ import Reports from './pages/Reports.jsx';
 import Profile from './pages/Profile.jsx';
 import Permissions from './pages/Permissions.jsx';
 import Cashier from './pages/Cashier.jsx';
+import Announcements from './pages/Announcements.jsx';
+import Activity from './pages/Activity.jsx';
+import Search from './pages/Search.jsx';
 import Layout from './components/Layout.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { I18nProvider } from './i18n.js';
@@ -43,6 +46,9 @@ export default function App() {
           <Route path="/profile" element={<Protected><Profile /></Protected>} />
           <Route path="/permissions" element={<Protected><Permissions /></Protected>} />
           <Route path="/cashier" element={<Protected><Cashier /></Protected>} />
+          <Route path="/announcements" element={<Protected><Announcements /></Protected>} />
+          <Route path="/activity" element={<Protected><Activity /></Protected>} />
+          <Route path="/search" element={<Protected><Search /></Protected>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
