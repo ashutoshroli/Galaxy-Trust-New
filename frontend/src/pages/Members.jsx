@@ -412,7 +412,7 @@ export default function Members() {
                               {detail.is_cashier && (
                                 <div style={{ marginTop: 14 }}>
                                   <strong>👛 {t('cashier.asCashier')}</strong>
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 6 }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14, marginTop: 6 }}>
                                     <div>
                                       <p className="muted" style={{ margin: '4px 0' }}>⬇️ {t('cashier.receivedFrom')}</p>
                                       <table>
