@@ -67,6 +67,7 @@ export const translations = {
     'field.notes': 'Notes',
     'field.type': 'Type',
     'field.details': 'Details',
+    'field.email': 'Email',
 
     // Statuses
     'status.paid': 'Paid',
@@ -226,6 +227,9 @@ export const translations = {
     'profile.mismatch': 'New password and confirmation do not match.',
     'profile.tooShort': 'New password must be at least 8 characters.',
     'profile.success': 'Password updated successfully.',
+    'profile.personalDetails': 'Personal Details',
+    'profile.saveDetails': 'Save Details',
+    'profile.detailsUpdated': 'Your details were updated.',
 
     // Feed
     'feed.title': 'Feed',
@@ -431,6 +435,7 @@ export const translations = {
     'field.notes': 'टिप्पणियाँ',
     'field.type': 'प्रकार',
     'field.details': 'विवरण',
+    'field.email': 'ईमेल',
 
     'status.paid': 'भुगतान पूर्ण',
     'status.pending': 'बकाया',
@@ -577,6 +582,9 @@ export const translations = {
     'profile.mismatch': 'नया पासवर्ड और पुष्टि मेल नहीं खाते।',
     'profile.tooShort': 'नया पासवर्ड कम से कम 8 अक्षर का होना चाहिए।',
     'profile.success': 'पासवर्ड सफलतापूर्वक अपडेट हुआ।',
+    'profile.personalDetails': 'व्यक्तिगत विवरण',
+    'profile.saveDetails': 'विवरण सहेजें',
+    'profile.detailsUpdated': 'आपका विवरण अपडेट हो गया।',
 
     'feed.title': 'फ़ीड',
     'feed.justNow': 'अभी',

@@ -33,7 +33,7 @@ function resizeImage(file, maxW = 400, quality = 0.8) {
   });
 }
 
-const EMPTY_FORM = { name: '', relation_name: '', role: 'trustee', address: '', phone: '', dob: '', photo: '' };
+const EMPTY_FORM = { name: '', relation_name: '', role: 'trustee', address: '', phone: '', email: '', dob: '', photo: '' };
 
 export default function Members() {
   const { t } = useI18n();
@@ -103,6 +103,7 @@ export default function Members() {
       role: m.role || 'trustee',
       address: m.address || '',
       phone: m.phone || '',
+      email: m.email || '',
       dob: m.dob ? m.dob.slice(0, 10) : '',
       photo: m.photo || '',
     });
@@ -243,9 +244,9 @@ export default function Members() {
   function exportMembersCSV() {
     downloadCSV(
       'members.csv',
-      [t('field.name'), t('field.relation'), t('field.role'), t('field.phone'), t('field.address'), t('members.dob'), t('field.status')],
+      [t('field.name'), t('field.relation'), t('field.role'), t('field.phone'), t('field.email'), t('field.address'), t('members.dob'), t('field.status')],
       members.map((m) => [
-        m.name, m.relation_name || '', t(`role.${m.role}`), m.phone || '', m.address || '',
+        m.name, m.relation_name || '', t(`role.${m.role}`), m.phone || '', m.email || '', m.address || '',
         m.dob ? m.dob.slice(0, 10) : '', m.active === false ? t('members.inactive') : t('members.active'),
       ])
     );
@@ -278,6 +279,7 @@ export default function Members() {
           <RoleSelect value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
           <input placeholder={t('field.address')} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <input placeholder={t('field.phone')} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <input type="email" placeholder={t('field.email')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <label className="muted" style={{ fontSize: 13 }}>{t('members.dob')}</label>
           <input type="date" value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
           <div className="actions-row" style={{ alignItems: 'center' }}>
@@ -302,6 +304,7 @@ export default function Members() {
           <RoleSelect value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })} />
           <input placeholder={t('field.address')} value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
           <input placeholder={t('field.phone')} value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+          <input type="email" placeholder={t('field.email')} value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
           <label className="muted" style={{ fontSize: 13 }}>{t('members.dob')}</label>
           <input type="date" value={editForm.dob} onChange={(e) => setEditForm({ ...editForm, dob: e.target.value })} />
           <div className="actions-row" style={{ alignItems: 'center' }}>

@@ -152,10 +152,11 @@ CREATE TABLE IF NOT EXISTS feed_post_images (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Members: active/inactive status, date of birth, photo (added by feature migration)
+-- Members: active/inactive status, date of birth, photo, email (added by feature migration)
 ALTER TABLE members ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS dob DATE;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS photo TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS email VARCHAR(150);
 
 -- Meetings: minutes of meeting (MOM)
 ALTER TABLE meetings ADD COLUMN IF NOT EXISTS minutes TEXT;

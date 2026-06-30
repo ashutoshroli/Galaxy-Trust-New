@@ -15,6 +15,35 @@ router.get(
   })
 );
 
+// GET /me - the logged-in user's own linked member profile
+router.get(
+  '/me',
+  asyncHandler(async (req, res) => {
+    if (!req.user.member_id) return res.json(null);
+    const result = await pool.query('SELECT * FROM members WHERE id=$1', [req.user.member_id]);
+    res.json(result.rows[0] || null);
+  })
+);
+
+// PUT /me - a member edits their OWN personal details (role/active cannot be changed here)
+router.put(
+  '/me',
+  asyncHandler(async (req, res) => {
+    if (!req.user.member_id) return badRequest(res, 'No member profile is linked to this account.');
+    const { name, relation_name, address, phone, email, dob, photo } = req.body;
+    if (!name || name.trim() === '') return badRequest(res, 'name required');
+    const safeDob = dob && dob.trim() !== '' ? dob : null;
+    const result = await pool.query(
+      `UPDATE members SET name=$1, relation_name=$2, address=$3, phone=$4, email=$5, dob=$6, photo=COALESCE($7, photo)
+       WHERE id=$8 RETURNING *`,
+      [name, relation_name, address, phone, email, safeDob, photo ?? null, req.user.member_id]
+    );
+    if (!result.rows[0]) return notFound(res);
+    await pool.query('UPDATE users SET phone=$1 WHERE member_id=$2', [phone || null, req.user.member_id]);
+    res.json(result.rows[0]);
+  })
+);
+
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -29,13 +58,13 @@ router.post(
   '/',
   canAdd,
   asyncHandler(async (req, res) => {
-    const { name, relation_name, role, address, aadhar_last4, phone, dob, photo } = req.body;
+    const { name, relation_name, role, address, aadhar_last4, phone, dob, photo, email } = req.body;
     if (!name || !role) return badRequest(res, 'name and role required');
     const safeDob = dob && dob.trim() !== '' ? dob : null;
     const result = await pool.query(
-      `INSERT INTO members (name, relation_name, role, address, aadhar_last4, phone, dob, photo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo || null]
+      `INSERT INTO members (name, relation_name, role, address, aadhar_last4, phone, dob, photo, email)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo || null, email || null]
     );
     res.status(201).json(result.rows[0]);
   })
@@ -46,13 +75,13 @@ router.put(
   '/:id',
   canEdit,
   asyncHandler(async (req, res) => {
-    const { name, relation_name, role, address, aadhar_last4, phone, dob, photo, active } = req.body;
+    const { name, relation_name, role, address, aadhar_last4, phone, dob, photo, active, email } = req.body;
     const safeDob = dob && dob.trim() !== '' ? dob : null;
     const result = await pool.query(
       `UPDATE members SET name=$1, relation_name=$2, role=$3, address=$4, aadhar_last4=$5, phone=$6,
-              dob=$7, photo=COALESCE($8, photo), active=COALESCE($9, active)
-       WHERE id=$10 RETURNING *`,
-      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo ?? null, active, req.params.id]
+              dob=$7, photo=COALESCE($8, photo), active=COALESCE($9, active), email=$10
+       WHERE id=$11 RETURNING *`,
+      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo ?? null, active, email, req.params.id]
     );
     if (!result.rows[0]) return notFound(res);
     // Keep the linked login account's phone in sync (used for mobile login)
