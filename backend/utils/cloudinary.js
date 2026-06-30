@@ -28,11 +28,10 @@ export function cloudinaryConfigured() {
 }
 
 // Upload a base64 data URI (or remote URL) and return the hosted secure URL.
-export async function uploadImage(dataUri) {
+export async function uploadImage(dataUri, folder = 'galaxy_trust_feed') {
   const { cloudName, apiKey, apiSecret } = config();
 
   const timestamp = Math.floor(Date.now() / 1000);
-  const folder = 'galaxy_trust_feed';
   const toSign = `folder=${folder}&timestamp=${timestamp}`;
   const signature = crypto.createHash('sha1').update(toSign + apiSecret).digest('hex');
 

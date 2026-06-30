@@ -2,9 +2,23 @@ import express from 'express';
 import { pool } from '../db.js';
 import { authenticate, canAdd, canEdit, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
+import { cloudinaryConfigured, uploadImage } from '../utils/cloudinary.js';
 
 const router = express.Router();
 router.use(authenticate);
+
+// If a photo is a base64 data URI and Cloudinary is configured, upload it and
+// return the hosted URL (keeps the DB light). Otherwise return it unchanged.
+async function processPhoto(photo) {
+  if (!photo || typeof photo !== 'string') return photo;
+  if (/^https?:\/\//.test(photo)) return photo; // already a hosted URL
+  if (!cloudinaryConfigured()) return photo; // no Cloudinary -> keep base64 in DB
+  try {
+    return await uploadImage(photo, 'galaxy_trust_members');
+  } catch (e) {
+    return photo; // fall back to base64 on upload failure
+  }
+}
 
 // View - everyone (all roles including trustee)
 router.get(
@@ -33,10 +47,11 @@ router.put(
     const { name, relation_name, address, phone, email, dob, photo } = req.body;
     if (!name || name.trim() === '') return badRequest(res, 'name required');
     const safeDob = dob && dob.trim() !== '' ? dob : null;
+    const photoVal = await processPhoto(photo);
     const result = await pool.query(
       `UPDATE members SET name=$1, relation_name=$2, address=$3, phone=$4, email=$5, dob=$6, photo=COALESCE($7, photo)
        WHERE id=$8 RETURNING *`,
-      [name, relation_name, address, phone, email, safeDob, photo ?? null, req.user.member_id]
+      [name, relation_name, address, phone, email, safeDob, photoVal ?? null, req.user.member_id]
     );
     if (!result.rows[0]) return notFound(res);
     await pool.query('UPDATE users SET phone=$1 WHERE member_id=$2', [phone || null, req.user.member_id]);
@@ -61,10 +76,11 @@ router.post(
     const { name, relation_name, role, address, aadhar_last4, phone, dob, photo, email } = req.body;
     if (!name || !role) return badRequest(res, 'name and role required');
     const safeDob = dob && dob.trim() !== '' ? dob : null;
+    const photoVal = await processPhoto(photo);
     const result = await pool.query(
       `INSERT INTO members (name, relation_name, role, address, aadhar_last4, phone, dob, photo, email)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo || null, email || null]
+      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photoVal || null, email || null]
     );
     res.status(201).json(result.rows[0]);
   })
@@ -77,11 +93,12 @@ router.put(
   asyncHandler(async (req, res) => {
     const { name, relation_name, role, address, aadhar_last4, phone, dob, photo, active, email } = req.body;
     const safeDob = dob && dob.trim() !== '' ? dob : null;
+    const photoVal = await processPhoto(photo);
     const result = await pool.query(
       `UPDATE members SET name=$1, relation_name=$2, role=$3, address=$4, aadhar_last4=$5, phone=$6,
               dob=$7, photo=COALESCE($8, photo), active=COALESCE($9, active), email=$10
        WHERE id=$11 RETURNING *`,
-      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photo ?? null, active, email, req.params.id]
+      [name, relation_name, role, address, aadhar_last4, phone, safeDob, photoVal ?? null, active, email, req.params.id]
     );
     if (!result.rows[0]) return notFound(res);
     // Keep the linked login account's phone in sync (used for mobile login)
