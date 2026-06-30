@@ -2,6 +2,7 @@ import express from 'express';
 import { pool } from '../db.js';
 import { authenticate, canAdd, canEdit, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
+import { notifyAll } from '../utils/notify.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -55,6 +56,12 @@ router.post('/', canAdd, async (req, res) => {
     }
 
     await client.query('COMMIT');
+    notifyAll(req.user.id, {
+      type: 'meeting',
+      title: '📡 New Meeting',
+      body: `${subject || 'Meeting'} · ${meeting_date}`,
+      link: '/meetings',
+    }).catch(() => {});
     res.status(201).json(meeting);
   } catch (err) {
     await client.query('ROLLBACK');

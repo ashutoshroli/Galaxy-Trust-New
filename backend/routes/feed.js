@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
 import { cloudinaryConfigured, uploadImage } from '../utils/cloudinary.js';
+import { notifyAll, notifyMembers, notifyUsers } from '../utils/notify.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -177,6 +178,16 @@ router.post(
         );
       }
       await client.query('COMMIT');
+      const memberTagIds = cleanTags.filter((tg) => tg.type === 'member').map((tg) => tg.id);
+      notifyAll(req.user.id, {
+        type: 'feed_post',
+        title: '📣 New Post',
+        body: hasContent ? String(content).slice(0, 120) : 'Shared a photo',
+        link: '/feed',
+      }).catch(() => {});
+      if (memberTagIds.length) {
+        notifyMembers(memberTagIds, { type: 'feed_tag', title: '🏷️ You were tagged', body: 'You were tagged in a post.', link: '/feed' }).catch(() => {});
+      }
       res.status(201).json(post);
     } catch (err) {
       await client.query('ROLLBACK');
@@ -314,13 +325,17 @@ router.post(
     const { content } = req.body;
     if (!content || content.trim() === '') return badRequest(res, 'Comment khaali nahi ho sakta');
 
-    const postExists = await pool.query('SELECT 1 FROM feed_posts WHERE id=$1', [req.params.id]);
+    const postExists = await pool.query('SELECT author_user_id FROM feed_posts WHERE id=$1', [req.params.id]);
     if (!postExists.rows[0]) return notFound(res, 'Post not found');
 
     const result = await pool.query(
       `INSERT INTO feed_comments (post_id, user_id, content) VALUES ($1, $2, $3) RETURNING *`,
       [req.params.id, req.user.id, content.trim()]
     );
+    const authorId = postExists.rows[0].author_user_id;
+    if (authorId && authorId !== req.user.id) {
+      notifyUsers([authorId], { type: 'feed_comment', title: '💬 New Comment', body: 'Someone commented on your post.', link: '/feed' }).catch(() => {});
+    }
     res.status(201).json(result.rows[0]);
   })
 );

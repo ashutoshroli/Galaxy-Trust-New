@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { apiCall, getUser, logout as apiLogout } from '../api.js';
 import { getActiveTheme, setTheme, getActiveFontSize, setFontSize, FONT_SIZES } from '../theme.js';
 import { useI18n } from '../i18n.js';
+import NotificationBell from './NotificationBell.jsx';
 
 const NAV_ITEMS = [
   { to: '/', id: 'dashboard', key: 'nav.dashboard', icon: '🌌', end: true },
@@ -90,6 +91,7 @@ export default function Layout({ children }) {
           </div>
 
           <div className="topbar-controls">
+            <NotificationBell />
             <button className="print-btn icon-btn" onClick={() => changeFont(-1)} disabled={fontSize === 'sm'} title="Decrease text size" aria-label="Decrease text size" style={{ fontSize: 13 }}>A−</button>
             <button className="print-btn icon-btn" onClick={() => changeFont(1)} disabled={fontSize === 'lg'} title="Increase text size" aria-label="Increase text size" style={{ fontSize: 17 }}>A+</button>
             <button className="print-btn icon-btn" onClick={toggleLang} title="Language" aria-label="Language">{lang === 'en' ? 'EN' : 'हिं'}</button>

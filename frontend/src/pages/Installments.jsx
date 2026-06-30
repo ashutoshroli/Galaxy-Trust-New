@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { apiCall } from '../api.js';
-import { canAdd, canEdit, canDelete, canEditDelete } from '../permissions.js';
+import { canAdd, canEdit, canDelete, canEditDelete, isSuperAdmin } from '../permissions.js';
 import { printHTML } from '../printHelper.js';
 import { useI18n } from '../i18n.js';
+import { useToast } from '../components/Toast.jsx';
 import Modal from '../components/Modal.jsx';
 
 export default function Installments() {
   const { t } = useI18n();
+  const toast = useToast();
   const [list, setList] = useState([]);
   const [members, setMembers] = useState([]);
   const [error, setError] = useState('');
@@ -154,11 +156,24 @@ export default function Installments() {
     printHTML(t('inst.title'), `<h3>${t('inst.title')}</h3>${sections}`);
   }
 
+  async function sendReminders() {
+    if (!window.confirm(t('inst.remindConfirm'))) return;
+    try {
+      const r = await apiCall('/notifications/remind-installments', { method: 'POST' });
+      toast.success(t('inst.remindSent', { n: r.reminded || 0 }));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
   return (
     <div>
       <div className="card-header">
         <h2>{t('inst.title')}</h2>
-        <button className="print-btn" onClick={printAll}>🖨 {t('common.printAll')}</button>
+        <div className="card-header-actions">
+          {isSuperAdmin() && <button className="print-btn" onClick={sendReminders}>🔔 {t('inst.remind')}</button>}
+          <button className="print-btn" onClick={printAll}>🖨 {t('common.printAll')}</button>
+        </div>
       </div>
       {error && <div className="error-text">{error}</div>}
       {loading && <div className="card" style={{ textAlign: 'center', padding: 30 }}><div className="spinner" /></div>}

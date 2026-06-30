@@ -384,6 +384,16 @@ export const translations = {
     'photo.crop': 'Crop Photo',
     'photo.dragHint': 'Drag to reposition · slider to zoom',
     'photo.apply': 'Apply',
+
+    // Notifications
+    'notif.title': 'Notifications',
+    'notif.none': 'No notifications yet.',
+    'notif.markAll': 'Mark all read',
+    'notif.enablePush': 'Enable push notifications',
+    'notif.pushOn': 'Push notifications enabled',
+    'inst.remind': 'Send Reminders',
+    'inst.remindConfirm': 'Send a pending-installment reminder to all members who owe money?',
+    'inst.remindSent': 'Reminders sent to {n} member(s)',
   },
 
   hi: {
@@ -750,6 +760,16 @@ export const translations = {
     'photo.crop': 'फ़ोटो क्रॉप करें',
     'photo.dragHint': 'खींचकर सेट करें · ज़ूम के लिए स्लाइडर',
     'photo.apply': 'लागू करें',
+
+    // Notifications
+    'notif.title': 'सूचनाएं',
+    'notif.none': 'अभी तक कोई सूचना नहीं।',
+    'notif.markAll': 'सभी पढ़ा हुआ करें',
+    'notif.enablePush': 'पुश सूचनाएं चालू करें',
+    'notif.pushOn': 'पुश सूचनाएं चालू हो गईं',
+    'inst.remind': 'रिमाइंडर भेजें',
+    'inst.remindConfirm': 'जिन सदस्यों की किश्त बाकी है उन सबको रिमाइंडर भेजें?',
+    'inst.remindSent': '{n} सदस्य को रिमाइंडर भेजा गया',
   },
 };
 

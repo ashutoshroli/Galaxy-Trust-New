@@ -2,6 +2,7 @@ import express from 'express';
 import { pool } from '../db.js';
 import { authenticate, canAdd, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
+import { notifyAll } from '../utils/notify.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -33,6 +34,12 @@ router.post(
        VALUES ($1,$2,$3,$4) RETURNING *`,
       [title.trim(), body || null, !!pinned, req.user.id]
     );
+    notifyAll(req.user.id, {
+      type: 'announcement',
+      title: `📢 ${title.trim()}`,
+      body: body ? String(body).slice(0, 120) : '',
+      link: '/announcements',
+    }).catch(() => {});
     res.status(201).json(result.rows[0]);
   })
 );

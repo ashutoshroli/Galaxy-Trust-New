@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { authenticate, canAdd, canEdit, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
 import { replaceAllocations, deleteAllocations, getAllocationsMap } from '../utils/cashierAllocations.js';
+import { notifyAll } from '../utils/notify.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -99,6 +100,12 @@ router.post('/', canAdd, async (req, res) => {
     await replaceAllocations(client, 'contribution', result.rows[0].id, 'in', cashiers);
 
     await client.query('COMMIT');
+    notifyAll(req.user.id, {
+      type: 'contribution',
+      title: '💫 New Contribution',
+      body: `₹${Number(paidAmount).toLocaleString('en-IN')} contribution recorded.`,
+      link: '/contributions',
+    }).catch(() => {});
     res.status(201).json(result.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
