@@ -23,6 +23,7 @@ import navPermissionsRoutes from './routes/navPermissions.js';
 import notificationsRoutes from './routes/notifications.js';
 import { pool } from './db.js';
 import { logger } from './utils/logger.js';
+import { activityLogger } from './utils/activityLog.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -99,6 +100,9 @@ const apiLimiter = rateLimit({
   skip: () => !isProd,
 });
 app.use('/api', apiLimiter);
+
+// Auto-log all successful create/update/delete actions to the Activity Log.
+app.use('/api', activityLogger);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/members', membersRoutes);

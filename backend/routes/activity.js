@@ -14,12 +14,16 @@ router.get(
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
     const offset = parseInt(req.query.offset, 10) || 0;
     const action = (req.query.action || '').trim();
+    const like = (req.query.like || '').trim();
 
     const params = [];
     let where = '';
     if (action) {
       params.push(action);
       where = `WHERE action = $${params.length}`;
+    } else if (like) {
+      params.push(like);
+      where = `WHERE action LIKE $${params.length}`;
     }
 
     const totalRes = await pool.query(`SELECT COUNT(*)::int AS total FROM login_activity ${where}`, params);
@@ -27,7 +31,7 @@ router.get(
     params.push(limit);
     params.push(offset);
     const result = await pool.query(
-      `SELECT id, user_id, username, action, ip_address, created_at
+      `SELECT id, user_id, username, action, details, ip_address, created_at
        FROM login_activity ${where}
        ORDER BY created_at DESC, id DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,

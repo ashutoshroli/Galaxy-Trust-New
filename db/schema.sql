@@ -81,10 +81,14 @@ CREATE TABLE IF NOT EXISTS login_activity (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
     username VARCHAR(50),
-    action VARCHAR(50),               -- login_success / login_failed / logout / locked
+    action VARCHAR(80),               -- login_success / member_created / expense_deleted / password_reset / ...
+    details TEXT,                     -- human-readable description of the change
     ip_address VARCHAR(50),
     created_at TIMESTAMP DEFAULT NOW()
 );
+-- Widen action + add details for existing databases
+ALTER TABLE login_activity ALTER COLUMN action TYPE VARCHAR(80);
+ALTER TABLE login_activity ADD COLUMN IF NOT EXISTS details TEXT;
 
 -- Staff (teachers/helpers/etc.) and their payment history
 CREATE TABLE IF NOT EXISTS staff (
