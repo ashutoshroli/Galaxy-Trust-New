@@ -73,7 +73,6 @@ export default function Layout({ children }) {
         <h2>
           <span className="brand-logo" aria-hidden="true" />
           {t('app.brand')}
-          <button className="sidebar-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">✕</button>
         </h2>
         {NAV_ITEMS.filter((item) => {
           if (item.superadminOnly) return user?.role === 'superadmin';

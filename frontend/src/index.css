@@ -108,18 +108,6 @@ body {
 /* ============================================================
    Layout shell
    ============================================================ */
-/* Mobile-only close button inside the sidebar */
-.sidebar-close {
-  display: none;
-  margin-left: auto;
-  background: rgba(140, 150, 230, 0.14);
-  border: 1px solid var(--glass-border);
-  color: var(--text-soft);
-  width: 32px; height: 32px; padding: 0;
-  font-size: 15px; line-height: 1; border-radius: 8px;
-  box-shadow: none;
-}
-
 /* Footer pinned at the bottom of the sidebar (fills the empty space) */
 .sidebar-footer {
   margin-top: auto;
@@ -600,7 +588,6 @@ textarea { min-height: 80px; resize: vertical; }
     box-shadow: var(--shadow-soft);
   }
   .sidebar.open { transform: translateX(0); }
-  .sidebar-close { display: inline-flex; align-items: center; justify-content: center; }
   .main { padding: 18px 16px; }
   .menu-toggle {
     display: inline-flex;
