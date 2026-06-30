@@ -32,7 +32,11 @@ export async function apiCall(path, options = {}) {
 
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
-  if (res.status === 401) {
+  // A 401 on the login request means "wrong username/password" — let that error
+  // flow back to the Login page. For every other request a 401 means the token
+  // is missing/expired, so we clear the session and send the user to /login.
+  const isLoginRequest = path === '/auth/login';
+  if (res.status === 401 && !isLoginRequest) {
     clearToken();
     window.location.href = '/login';
     throw new Error('Session expired. Please login again.');
