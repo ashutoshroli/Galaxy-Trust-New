@@ -244,14 +244,20 @@ router.post('/forgot-password', async (req, res) => {
       `<p>Or paste this link into your browser:<br><a href="${link}">${link}</a></p>` +
       `<p style="color:#888;font-size:13px">If you didn't request this, you can safely ignore this email — your password won't change.</p>`;
 
-    const sent = await sendMail({ to: toEmail, subject, text, html });
-    if (!sent) {
-      // SMTP not configured — surface the link in the server log as a fallback.
-      logger.warn('Password reset link (email not sent — SMTP off)', { userId: user.id, link });
-    }
-
     await logActivity(user.id, user.username, 'password_reset_requested', req);
-    return res.json(generic);
+
+    // Respond immediately — don't make the user wait on email delivery.
+    res.json(generic);
+
+    // Deliver the email in the background; log the link if it can't be sent.
+    sendMail({ to: toEmail, subject, text, html })
+      .then((sent) => {
+        if (!sent) logger.warn('Password reset link (no email provider)', { userId: user.id, link });
+      })
+      .catch((err) => {
+        logger.error('reset email send failed', { userId: user.id, message: err.message, link });
+      });
+    return;
   } catch (err) {
     logger.error('forgot-password error', { message: err.message });
     return res.status(500).json({ error: 'Server error' });
