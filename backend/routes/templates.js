@@ -17,6 +17,8 @@ const SAMPLE_VARS = {
   username: 'rekha_verma',
   link: 'https://example.com/reset-password?token=sample-token',
   minutes: '30',
+  title: 'Trust Office Closed on Republic Day',
+  body: 'The trust office will remain closed on 26th January. Regular hours resume the next day.',
 };
 
 // GET /templates - list every template (defaults + any override), for the

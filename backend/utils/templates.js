@@ -42,6 +42,16 @@ export const TEMPLATE_DEFS = {
       body: '{subject} \u00b7 {date}',
     },
   },
+  announcement_created: {
+    label: 'New Notice Board Post',
+    description: 'Sent to everyone when a new notice/announcement is posted.',
+    channels: ['in-app/push'],
+    placeholders: ['title', 'body'],
+    defaults: {
+      title: '\ud83d\udce2 {title}',
+      body: '{body}',
+    },
+  },
   password_reset_email: {
     label: 'Password Reset Email',
     description: 'Emailed when a user requests a password reset link.',
