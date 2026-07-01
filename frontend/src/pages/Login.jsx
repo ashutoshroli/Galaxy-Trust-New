@@ -10,6 +10,7 @@ export default function Login() {
   const [mode, setMode] = useState('login'); // 'login' | 'forgot'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [email, setEmail] = useState('');
   const [lookup, setLookup] = useState(null); // { name, username } once email is confirmed
   const [error, setError] = useState('');
@@ -23,7 +24,7 @@ export default function Login() {
     try {
       const data = await apiCall('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, remember }),
       });
       setToken(data.token);
       setUser(data.user);
@@ -106,6 +107,14 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <label className="remember-me-row">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              <span>{t('login.rememberMe')}</span>
+            </label>
             <button type="submit" disabled={loading} style={{ width: '100%', marginTop: 4 }}>
               {loading ? t('login.signingIn') : t('login.signIn')}
             </button>

@@ -55,12 +55,15 @@ async function findAccountByIdentifier(identifier) {
 
 // Login with username, mobile number OR email
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, remember } = req.body;
   const identifier = (username || '').trim();
   if (!identifier || !password) {
     return res.status(400).json({ error: 'Username/mobile/email and password required' });
   }
   const digits = identifier.replace(/\D/g, '');
+  // "Remember me": keep the session alive for 30 days instead of the usual
+  // short-lived token, so the user isn't auto-logged-out on this device.
+  const tokenTtl = remember ? '30d' : (process.env.JWT_EXPIRES_IN || '8h');
 
   try {
     const result = await pool.query(
@@ -113,7 +116,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role, member_id: user.member_id, member_role: user.member_role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+      { expiresIn: tokenTtl }
     );
 
     res.json({
