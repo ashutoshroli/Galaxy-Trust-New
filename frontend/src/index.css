@@ -135,6 +135,26 @@ body {
 }
 .link-btn:hover { opacity: 0.85; }
 
+/* Lazy-loaded route fallback (shown briefly while a page chunk downloads) */
+.page-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  width: 100%;
+}
+.page-loader .spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(140, 150, 230, 0.25);
+  border-top-color: var(--accent, #8c96e6);
+  animation: page-loader-spin 0.8s linear infinite;
+}
+@keyframes page-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Forgot-password "account found" confirmation block */
 .account-confirm {
   display: flex;
