@@ -91,6 +91,18 @@ const loginLimiter = rateLimit({
 });
 app.use('/api/auth/login', loginLimiter);
 
+// Forgot-password (lookup + send) — tighter limit: prevents account
+// enumeration and stops one IP from spamming reset emails to a target.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !isProd,
+  message: { error: 'Too many password reset attempts. Please try again later.' },
+});
+app.use('/api/auth/forgot-password', forgotPasswordLimiter);
+
 // General API rate limit (generous — protects against accidental floods)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
