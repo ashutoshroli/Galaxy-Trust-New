@@ -24,6 +24,7 @@ import notificationsRoutes from './routes/notifications.js';
 import { pool } from './db.js';
 import { logger } from './utils/logger.js';
 import { activityLogger } from './utils/activityLog.js';
+import { applySchema } from './utils/migrate.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -167,16 +168,34 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  logger.info(`Galaxy Trust backend running on port ${PORT}`, { env: process.env.NODE_ENV || 'development' });
-});
+
+// Auto-apply db/schema.sql on every boot (idempotent — see utils/migrate.js),
+// so a new feature's schema change lands automatically without anyone having
+// to run SQL by hand on Neon/Render. Set SKIP_AUTO_MIGRATE=true to disable
+// (e.g. if you prefer to run `npm run setup-db` manually).
+let server;
+async function start() {
+  if (process.env.SKIP_AUTO_MIGRATE !== 'true') {
+    const ok = await applySchema(pool);
+    if (!ok && isProd) {
+      logger.error('Startup migration failed — refusing to start in production. Fix the schema and redeploy.');
+      process.exit(1);
+    }
+  }
+  server = app.listen(PORT, () => {
+    logger.info(`Galaxy Trust backend running on port ${PORT}`, { env: process.env.NODE_ENV || 'development' });
+  });
+}
+start();
 
 // Graceful shutdown — Render/containers send SIGTERM on restart/stop.
 function shutdown(signal) {
   logger.info(`${signal} received — shutting down gracefully`);
-  server.close(() => {
-    pool.end().then(() => process.exit(0)).catch(() => process.exit(0));
-  });
+  const closeDb = () => pool.end().then(() => process.exit(0)).catch(() => process.exit(0));
+  // server may still be undefined if SIGTERM arrives while the startup
+  // migration is still running.
+  if (server) server.close(closeDb);
+  else closeDb();
   // Force-exit if it hangs
   setTimeout(() => process.exit(1), 10000).unref();
 }
