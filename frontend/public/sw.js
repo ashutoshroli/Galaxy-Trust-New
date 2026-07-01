@@ -1,10 +1,29 @@
 /* Galaxy Trust service worker — enables installability + basic offline shell.
    Network-first (so users always get the latest build), cache as offline fallback.
-   API requests are never cached. */
-const CACHE = 'galaxy-trust-v1';
+   API requests are never cached.
+
+   CACHE_VERSION is stamped by the Vite build (see vite.config.js) with the
+   build timestamp, so every deploy gets a brand-new cache name. On
+   activation, any cache from a previous deploy is deleted automatically —
+   users never get stuck serving stale assets from an old build. */
+const CACHE_VERSION = '__CACHE_VERSION__';
+const CACHE = `galaxy-trust-${CACHE_VERSION}`;
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      const names = await caches.keys();
+      await Promise.all(
+        names
+          .filter((name) => name.startsWith('galaxy-trust-') && name !== CACHE)
+          .map((name) => caches.delete(name))
+      );
+      await self.clients.claim();
+    })()
+  );
+});
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
