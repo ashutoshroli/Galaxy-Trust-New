@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { apiCall } from '../api.js';
-import { canAdd, canEdit, canDelete, canEditDelete } from '../permissions.js';
+import { apiCall, getUser } from '../api.js';
+import { canAdd, canEdit, canDelete, canEditDelete, isSuperAdmin } from '../permissions.js';
 import { printHTML } from '../printHelper.js';
 import { useI18n } from '../i18n.js';
+import { useToast } from '../components/Toast.jsx';
 import Modal from '../components/Modal.jsx';
 
 const TRUST_NAME = 'Galaxy Educational and Social Welfare Trust';
 
 export default function Meetings() {
   const { t } = useI18n();
+  const toast = useToast();
+  const user = getUser();
   const [list, setList] = useState([]);
   const [members, setMembers] = useState([]);
   const [error, setError] = useState('');
@@ -16,8 +19,12 @@ export default function Meetings() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ meeting_date: '', location: '', subject: '', description: '', minutes: '' });
   const [attendance, setAttendance] = useState({});
+  const [agendaDraft, setAgendaDraft] = useState([]); // [{ title, description }] while creating a meeting
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [votingId, setVotingId] = useState(null);
+  const [voters, setVoters] = useState(null); // { itemId, rows } — voter breakdown popup
+  const [newAgendaTitle, setNewAgendaTitle] = useState('');
 
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -33,13 +40,27 @@ export default function Meetings() {
     setAttendance({ ...attendance, [memberId]: !attendance[memberId] });
   }
 
+  function addAgendaDraftRow() {
+    setAgendaDraft([...agendaDraft, { title: '', description: '' }]);
+  }
+  function updateAgendaDraftRow(i, field, value) {
+    const next = [...agendaDraft];
+    next[i] = { ...next[i], [field]: value };
+    setAgendaDraft(next);
+  }
+  function removeAgendaDraftRow(i) {
+    setAgendaDraft(agendaDraft.filter((_, idx) => idx !== i));
+  }
+
   async function handleAdd(e) {
     e.preventDefault();
     try {
       const attendanceArr = members.map((m) => ({ member_id: m.id, present: !!attendance[m.id] }));
-      await apiCall('/meetings', { method: 'POST', body: JSON.stringify({ ...form, attendance: attendanceArr }) });
+      const agenda = agendaDraft.filter((a) => a.title.trim());
+      await apiCall('/meetings', { method: 'POST', body: JSON.stringify({ ...form, attendance: attendanceArr, agenda }) });
       setForm({ meeting_date: '', location: '', subject: '', description: '', minutes: '' });
       setAttendance({});
+      setAgendaDraft([]);
       setShowForm(false);
       load();
     } catch (err) {
@@ -72,10 +93,91 @@ export default function Meetings() {
     }
   }
 
+  async function refreshDetail() {
+    if (!expandedId) return;
+    try {
+      const d = await apiCall(`/meetings/${expandedId}`);
+      setDetail(d);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function addAgendaItem() {
+    const title = newAgendaTitle.trim();
+    if (!title || !expandedId) return;
+    try {
+      await apiCall(`/meetings/${expandedId}/agenda`, { method: 'POST', body: JSON.stringify({ title }) });
+      setNewAgendaTitle('');
+      refreshDetail();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  async function setAgendaStatus(itemId, status) {
+    try {
+      await apiCall(`/meetings/agenda/${itemId}`, { method: 'PUT', body: JSON.stringify({ status }) });
+      refreshDetail();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  async function deleteAgendaItem(itemId) {
+    if (!window.confirm(t('common.confirmDelete'))) return;
+    try {
+      await apiCall(`/meetings/agenda/${itemId}`, { method: 'DELETE' });
+      refreshDetail();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  async function castVote(itemId, vote) {
+    if (votingId) return;
+    setVotingId(itemId);
+    try {
+      await apiCall(`/meetings/agenda/${itemId}/vote`, { method: 'POST', body: JSON.stringify({ vote }) });
+      await refreshDetail();
+      toast.success(t('meet.voteRecorded'));
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setVotingId(null);
+    }
+  }
+
+  async function showVoters(itemId) {
+    if (voters?.itemId === itemId) {
+      setVoters(null);
+      return;
+    }
+    try {
+      const rows = await apiCall(`/meetings/agenda/${itemId}/votes`);
+      setVoters({ itemId, rows });
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  function agendaStatusLabel(status) {
+    if (status === 'passed') return <span className="badge" style={{ background: '#059669' }}>{t('meet.passed')}</span>;
+    if (status === 'rejected') return <span className="badge" style={{ background: '#dc2626' }}>{t('meet.rejected')}</span>;
+    if (status === 'withdrawn') return <span className="badge" style={{ background: '#6b7280' }}>{t('meet.withdrawn')}</span>;
+    return <span className="badge" style={{ background: '#d97706' }}>{t('meet.open')}</span>;
+  }
+
   function printMOM(d) {
     if (!d) return;
     const present = d.attendance.filter((a) => a.present).map((a) => a.name);
     const absent = d.attendance.filter((a) => !a.present).map((a) => a.name);
+    const agendaRows = (d.agenda || []).map((a) => `
+      <tr>
+        <td>${a.title}</td>
+        <td>${a.status}</td>
+        <td>${a.yes_count} / ${a.no_count} / ${a.abstain_count}</td>
+      </tr>`).join('');
     printHTML(`MOM - ${d.subject || d.meeting_date?.slice(0, 10)}`, `
       <h3>${t('meet.mom')}</h3>
       <p class="muted">
@@ -86,6 +188,11 @@ export default function Meetings() {
       ${d.description ? `<p><strong>${t('field.description')}:</strong> ${d.description}</p>` : ''}
       <div class="section-title"><h3>${t('meet.minutes')}</h3></div>
       <p style="white-space:pre-wrap;">${d.minutes || '-'}</p>
+      ${(d.agenda || []).length > 0 ? `
+        <div class="section-title"><h3>${t('meet.agenda')}</h3></div>
+        <table><thead><tr><th>${t('meet.agendaItem')}</th><th>${t('field.status')}</th><th>${t('meet.yesNoAbstain')}</th></tr></thead>
+        <tbody>${agendaRows}</tbody></table>
+      ` : ''}
       <div class="section-title"><h3>${t('meet.attendance')}</h3></div>
       <p><strong>${t('meet.present')} (${present.length}):</strong> ${present.join(', ') || '-'}</p>
       <p><strong>${t('meet.absent')} (${absent.length}):</strong> ${absent.join(', ') || '-'}</p>
@@ -111,6 +218,24 @@ export default function Meetings() {
           <input placeholder={t('field.subject')} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
           <textarea placeholder={t('field.description')} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <textarea placeholder={t('meet.minutes')} style={{ minHeight: 100 }} value={form.minutes} onChange={(e) => setForm({ ...form, minutes: e.target.value })} />
+
+          <p style={{ marginBottom: 6 }}><strong>{t('meet.agenda')}</strong> <span className="muted" style={{ fontSize: 12 }}>({t('meet.agendaHint')})</span></p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+            {agendaDraft.map((a, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6 }}>
+                <input
+                  placeholder={t('meet.agendaItemPlaceholder')}
+                  style={{ margin: 0 }}
+                  value={a.title}
+                  onChange={(e) => updateAgendaDraftRow(i, 'title', e.target.value)}
+                />
+                <button type="button" className="print-btn" onClick={() => removeAgendaDraftRow(i)}>✕</button>
+              </div>
+            ))}
+            <button type="button" className="print-btn" onClick={addAgendaDraftRow} style={{ alignSelf: 'flex-start' }}>
+              + {t('meet.addAgendaItem')}
+            </button>
+          </div>
 
           <p><strong>{t('meet.attendance')}</strong></p>
           <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10, border: '1px solid var(--glass-border)', borderRadius: 8, padding: 8 }}>
@@ -183,6 +308,85 @@ export default function Meetings() {
                               <p style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{detail.minutes}</p>
                             </div>
                           )}
+
+                          {/* Agenda + voting */}
+                          <div style={{ margin: '14px 0' }}>
+                            <strong>{t('meet.agenda')}</strong>
+                            {(detail.agenda || []).length === 0 && (
+                              <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>{t('meet.noAgenda')}</p>
+                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                              {(detail.agenda || []).map((a) => (
+                                <div key={a.id} className="agenda-item-card">
+                                  <div className="card-header" style={{ marginBottom: 6 }}>
+                                    <span style={{ fontWeight: 600 }}>{a.title}</span>
+                                    {agendaStatusLabel(a.status)}
+                                  </div>
+                                  {a.description && <p className="muted" style={{ fontSize: 13, margin: '0 0 6px' }}>{a.description}</p>}
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                    <span className="muted" style={{ fontSize: 13 }}>
+                                      ✅ {a.yes_count} &nbsp; ❌ {a.no_count} &nbsp; ⬜ {a.abstain_count}
+                                    </span>
+                                    <button className="print-btn" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => showVoters(a.id)}>
+                                      {voters?.itemId === a.id ? t('common.hide') : t('meet.viewVoters')}
+                                    </button>
+                                  </div>
+
+                                  {a.status === 'open' && user?.member_id && (
+                                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                                      {['yes', 'no', 'abstain'].map((v) => (
+                                        <button
+                                          key={v}
+                                          className="print-btn"
+                                          disabled={votingId === a.id}
+                                          style={{
+                                            fontSize: 12,
+                                            padding: '4px 10px',
+                                            background: a.my_vote === v ? 'var(--grad-primary)' : undefined,
+                                            color: a.my_vote === v ? '#fff' : undefined,
+                                          }}
+                                          onClick={() => castVote(a.id, v)}
+                                        >
+                                          {v === 'yes' ? `✅ ${t('meet.voteYes')}` : v === 'no' ? `❌ ${t('meet.voteNo')}` : `⬜ ${t('meet.voteAbstain')}`}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {voters?.itemId === a.id && (
+                                    <div className="muted" style={{ fontSize: 13, marginTop: 8, borderTop: '1px solid var(--glass-border)', paddingTop: 8 }}>
+                                      {voters.rows.length === 0
+                                        ? t('common.none')
+                                        : voters.rows.map((v) => `${v.name} (${v.vote})`).join(', ')}
+                                    </div>
+                                  )}
+
+                                  {isSuperAdmin() && (
+                                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                      {a.status !== 'passed' && <button className="print-btn" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => setAgendaStatus(a.id, 'passed')}>{t('meet.markPassed')}</button>}
+                                      {a.status !== 'rejected' && <button className="print-btn" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => setAgendaStatus(a.id, 'rejected')}>{t('meet.markRejected')}</button>}
+                                      {a.status === 'open' && <button className="print-btn" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => setAgendaStatus(a.id, 'withdrawn')}>{t('meet.withdraw')}</button>}
+                                      <button className="print-btn" style={{ fontSize: 12, padding: '4px 8px', color: '#dc2626' }} onClick={() => deleteAgendaItem(a.id)}>{t('common.delete')}</button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            {canAdd() && (
+                              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                                <input
+                                  placeholder={t('meet.agendaItemPlaceholder')}
+                                  style={{ margin: 0 }}
+                                  value={newAgendaTitle}
+                                  onChange={(e) => setNewAgendaTitle(e.target.value)}
+                                />
+                                <button className="print-btn" onClick={addAgendaItem}>+ {t('common.add')}</button>
+                              </div>
+                            )}
+                          </div>
+
                           <strong>{t('meet.present')}:</strong>{' '}
                           {detail.attendance.filter((a) => a.present).map((a) => a.name).join(', ') || t('common.none')}
                           <br />

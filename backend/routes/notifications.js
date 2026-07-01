@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { authenticate, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest } from '../utils/http.js';
 import { vapidPublicKey, saveSubscription, notifyMembers } from '../utils/notify.js';
+import { runDailyReminders } from '../utils/scheduler.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -82,6 +83,18 @@ router.post(
       reminded++;
     }
     res.json({ reminded });
+  })
+);
+
+// POST /notifications/run-scheduled-reminders - superadmin manually triggers
+// the same job the daily cron runs (pending installments + birthdays today).
+// Useful to test delivery, or to force a run without waiting for 9 AM.
+router.post(
+  '/run-scheduled-reminders',
+  onlySuperAdmin,
+  asyncHandler(async (req, res) => {
+    const result = await runDailyReminders();
+    res.json(result);
   })
 );
 

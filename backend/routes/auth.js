@@ -6,6 +6,7 @@ import { pool } from '../db.js';
 import { authenticate } from '../middleware/auth.js';
 import { sendMail } from '../utils/mailer.js';
 import { logger } from '../utils/logger.js';
+import { createSession, listSessions, revokeSession, revokeAllSessions } from '../utils/sessions.js';
 
 const router = express.Router();
 
@@ -113,8 +114,9 @@ router.post('/login', async (req, res) => {
     );
     await logActivity(user.id, user.username, 'login_success', req);
 
+    const jti = await createSession(req, { userId: user.id, remember: !!remember, ttl: tokenTtl });
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, member_id: user.member_id, member_role: user.member_role },
+      { id: user.id, username: user.username, role: user.role, member_id: user.member_id, member_role: user.member_role, jti },
       process.env.JWT_SECRET,
       { expiresIn: tokenTtl }
     );
@@ -141,13 +143,17 @@ async function logActivity(userId, username, action, req) {
   }
 }
 
-// Logout — JWT is stateless, so this just records the event for the audit log.
+// Logout — revokes this device's session (so a stolen/cached token stops
+// working immediately) and records the event for the audit log.
 router.post('/logout', async (req, res) => {
   const header = req.headers['authorization'];
   if (header && header.startsWith('Bearer ')) {
     try {
       const decoded = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
       await logActivity(decoded.id, decoded.username, 'logout', req);
+      if (decoded.jti) {
+        await pool.query('UPDATE user_sessions SET revoked_at = NOW() WHERE jti = $1', [decoded.jti]).catch(() => {});
+      }
     } catch (err) {
       // ignore invalid/expired token on logout
     }
@@ -378,10 +384,22 @@ router.put('/account', authenticate, async (req, res) => {
       const mr = await pool.query('SELECT role AS member_role FROM members WHERE id = $1', [user.member_id]);
       member_role = mr.rows[0]?.member_role || null;
     }
+    // Keep the same session (jti) alive across the username change instead
+    // of minting an untracked one, so "Active Sessions" stays accurate.
+    // Re-derive the remaining lifetime from that session's own expiry
+    // rather than resetting to the default -- a "remember me" (30-day)
+    // login shouldn't get cut short just from editing the profile.
+    let expiresInSec = 8 * 3600;
+    if (req.user.jti) {
+      const s = await pool.query('SELECT expires_at FROM user_sessions WHERE jti = $1', [req.user.jti]);
+      if (s.rows[0]) {
+        expiresInSec = Math.max(60, Math.floor((new Date(s.rows[0].expires_at) - Date.now()) / 1000));
+      }
+    }
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, member_id: user.member_id, member_role },
+      { id: user.id, username: user.username, role: user.role, member_id: user.member_id, member_role, jti: req.user.jti },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+      { expiresIn: expiresInSec }
     );
 
     await logActivity(user.id, user.username, 'account_updated', req);
@@ -399,6 +417,65 @@ router.put('/account', authenticate, async (req, res) => {
     });
   } catch (err) {
     logger.error('account update error', { message: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// List the logged-in user's active sessions ("Active Sessions" in Profile).
+router.get('/sessions', authenticate, async (req, res) => {
+  try {
+    const rows = await listSessions(req.user.id);
+    res.json(
+      rows.map((s) => ({
+        id: s.id,
+        device_label: s.device_label,
+        ip_address: s.ip_address,
+        remember: s.remember,
+        created_at: s.created_at,
+        last_seen_at: s.last_seen_at,
+        expires_at: s.expires_at,
+        current: s.jti === req.user.jti,
+      }))
+    );
+  } catch (err) {
+    logger.error('list sessions error', { message: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Revoke one session by id ("Log out this device").
+router.delete('/sessions/:id', authenticate, async (req, res) => {
+  try {
+    const ok = await revokeSession(req.user.id, req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Session not found' });
+    await logActivity(req.user.id, req.user.username, 'session_revoked', req);
+    res.json({ message: 'Session signed out' });
+  } catch (err) {
+    logger.error('revoke session error', { message: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Revoke every OTHER session (keeps the current device signed in).
+router.post('/sessions/revoke-others', authenticate, async (req, res) => {
+  try {
+    const count = await revokeAllSessions(req.user.id, req.user.jti);
+    await logActivity(req.user.id, req.user.username, 'sessions_revoked_others', req);
+    res.json({ revoked: count });
+  } catch (err) {
+    logger.error('revoke-others error', { message: err.message });
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Revoke ALL sessions, including this one ("Sign out everywhere").
+router.post('/sessions/revoke-all', authenticate, async (req, res) => {
+  try {
+    const count = await revokeAllSessions(req.user.id, null);
+    await logActivity(req.user.id, req.user.username, 'sessions_revoked_all', req);
+    res.json({ revoked: count });
+  } catch (err) {
+    logger.error('revoke-all error', { message: err.message });
     res.status(500).json({ error: 'Server error' });
   }
 });

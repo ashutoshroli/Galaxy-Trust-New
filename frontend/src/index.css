@@ -524,6 +524,26 @@ textarea { min-height: 80px; resize: vertical; }
   cursor: pointer;
 }
 
+/* Meeting agenda item card (Meetings detail view) */
+.agenda-item-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(140, 150, 230, 0.08);
+  border: 1px solid var(--glass-border);
+}
+
+/* Active Sessions list (Profile page) */
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(140, 150, 230, 0.08);
+  border: 1px solid var(--glass-border);
+}
+
 @keyframes floatIn {
   from { opacity: 0; transform: translateY(20px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }

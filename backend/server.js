@@ -25,6 +25,7 @@ import { pool } from './db.js';
 import { logger } from './utils/logger.js';
 import { activityLogger } from './utils/activityLog.js';
 import { applySchema } from './utils/migrate.js';
+import { startScheduler, stopScheduler } from './utils/scheduler.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -185,12 +186,14 @@ async function start() {
   server = app.listen(PORT, () => {
     logger.info(`Galaxy Trust backend running on port ${PORT}`, { env: process.env.NODE_ENV || 'development' });
   });
+  startScheduler();
 }
 start();
 
 // Graceful shutdown — Render/containers send SIGTERM on restart/stop.
 function shutdown(signal) {
   logger.info(`${signal} received — shutting down gracefully`);
+  stopScheduler();
   const closeDb = () => pool.end().then(() => process.exit(0)).catch(() => process.exit(0));
   // server may still be undefined if SIGTERM arrives while the startup
   // migration is still running.

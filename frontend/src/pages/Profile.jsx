@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiCall, getUser, setToken, setUser as saveUser } from '../api.js';
+import { apiCall, getUser, setToken, setUser as saveUser, clearToken } from '../api.js';
 import { useI18n } from '../i18n.js';
 import { useToast } from '../components/Toast.jsx';
 import PhotoPicker from '../components/PhotoPicker.jsx';
@@ -18,6 +18,12 @@ export default function Profile() {
   const [hasProfile, setHasProfile] = useState(false);
   const [details, setDetails] = useState({ name: '', relation_name: '', phone: '', email: '', address: '', dob: '', photo: '' });
   const [savingDetails, setSavingDetails] = useState(false);
+
+  // ---- Active sessions ----
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [revokingId, setRevokingId] = useState(null);
+  const [revokingBulk, setRevokingBulk] = useState(false);
 
   // ---- Password ----
   const [currentPassword, setCurrentPassword] = useState('');
@@ -52,6 +58,57 @@ export default function Profile() {
       })
       .catch(() => {});
   }, []);
+
+  function loadSessions() {
+    setSessionsLoading(true);
+    apiCall('/auth/sessions')
+      .then(setSessions)
+      .catch(() => {})
+      .finally(() => setSessionsLoading(false));
+  }
+  useEffect(loadSessions, []);
+
+  async function revokeOne(id) {
+    if (revokingId) return;
+    setRevokingId(id);
+    try {
+      await apiCall(`/auth/sessions/${id}`, { method: 'DELETE' });
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      toast.success(t('profile.sessionRevoked'));
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRevokingId(null);
+    }
+  }
+
+  async function revokeOthers() {
+    if (revokingBulk || !window.confirm(t('profile.revokeOthersConfirm'))) return;
+    setRevokingBulk(true);
+    try {
+      const r = await apiCall('/auth/sessions/revoke-others', { method: 'POST' });
+      toast.success(t('profile.sessionsRevokedCount', { n: r.revoked || 0 }));
+      loadSessions();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRevokingBulk(false);
+    }
+  }
+
+  async function revokeAll() {
+    if (revokingBulk || !window.confirm(t('profile.revokeAllConfirm'))) return;
+    setRevokingBulk(true);
+    try {
+      await apiCall('/auth/sessions/revoke-all', { method: 'POST' });
+      toast.success(t('profile.signedOutEverywhere'));
+      clearToken();
+      window.location.href = '/login';
+    } catch (err) {
+      toast.error(err.message);
+      setRevokingBulk(false);
+    }
+  }
 
   async function saveAccount(e) {
     e.preventDefault();
@@ -183,6 +240,53 @@ export default function Profile() {
           </form>
         </div>
       )}
+
+      {/* Active sessions — see where you're logged in, sign out remotely */}
+      <div className="card" style={{ maxWidth: 480 }}>
+        <div className="card-header">
+          <h3 style={{ margin: 0 }}>{t('profile.activeSessions')}</h3>
+          {sessions.length > 1 && (
+            <button className="print-btn" onClick={revokeOthers} disabled={revokingBulk}>
+              {t('profile.signOutOthers')}
+            </button>
+          )}
+        </div>
+        {sessionsLoading ? (
+          <p className="muted">{t('common.loading')}</p>
+        ) : sessions.length === 0 ? (
+          <p className="muted">{t('common.none')}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sessions.map((s) => (
+              <div key={s.id} className="session-row">
+                <div>
+                  <strong>{s.device_label || t('profile.unknownDevice')}</strong>
+                  {s.current && <span className="badge" style={{ background: '#059669', marginLeft: 8, fontSize: 11 }}>{t('profile.thisDevice')}</span>}
+                  {s.remember && <span className="badge" style={{ background: '#6d5efc', marginLeft: 8, fontSize: 11 }}>{t('login.rememberMe')}</span>}
+                  <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                    {s.ip_address ? `${s.ip_address} · ` : ''}{t('profile.lastActive')}: {new Date(s.last_seen_at).toLocaleString('en-IN')}
+                  </div>
+                </div>
+                {!s.current && (
+                  <button className="print-btn" onClick={() => revokeOne(s.id)} disabled={revokingId === s.id}>
+                    {t('profile.signOut')}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {sessions.length > 0 && (
+          <button
+            className="print-btn"
+            style={{ marginTop: 12, color: '#dc2626' }}
+            onClick={revokeAll}
+            disabled={revokingBulk}
+          >
+            {t('profile.signOutEverywhere')}
+          </button>
+        )}
+      </div>
 
       <div className="card" style={{ maxWidth: 480 }}>
         <h3>{t('profile.changePassword')}</h3>

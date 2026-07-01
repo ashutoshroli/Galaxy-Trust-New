@@ -1,18 +1,36 @@
 import jwt from 'jsonwebtoken';
+import { pool } from '../db.js';
 
-export function authenticate(req, res, next) {
+export async function authenticate(req, res, next) {
   const header = req.headers['authorization'];
   if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'No token provided' });
   }
   const token = header.split(' ')[1];
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, username, role, member_id }
-    next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+  req.user = decoded; // { id, username, role, member_id, jti }
+
+  // Session revocation check ("Logout from all devices" support). Tokens
+  // issued before this feature existed have no jti — treat those as valid
+  // so nobody gets logged out by this change. A DB hiccup here also fails
+  // open (lets the request through) rather than locking everyone out.
+  if (decoded.jti) {
+    try {
+      const r = await pool.query('SELECT revoked_at FROM user_sessions WHERE jti = $1', [decoded.jti]);
+      if (r.rows[0]?.revoked_at) {
+        return res.status(401).json({ error: 'This session has been signed out. Please sign in again.' });
+      }
+      pool.query('UPDATE user_sessions SET last_seen_at = NOW() WHERE jti = $1', [decoded.jti]).catch(() => {});
+    } catch {
+      // ignore — fail open
+    }
+  }
+  next();
 }
 
 // superadmin = full access always
