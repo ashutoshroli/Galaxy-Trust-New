@@ -1,0 +1,39 @@
+name: keep-alive
+
+# Pings the backend's /api/health endpoint on a schedule to keep a Render
+# free-tier web service from spinning down due to inactivity. See DEPLOY.md
+# ("Keep the backend awake") for setup instructions.
+#
+# Requires a repository (or environment) variable named RENDER_HEALTH_URL,
+# e.g. https://galaxy-trust-api.onrender.com/api/health
+# If it isn't set, the job exits early instead of failing noisily.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    name: Ping backend health endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/health
+        env:
+          HEALTH_URL: ${{ vars.RENDER_HEALTH_URL }}
+        run: |
+          if [ -z "$HEALTH_URL" ]; then
+            echo "RENDER_HEALTH_URL repository variable is not set — skipping. See DEPLOY.md."
+            exit 0
+          fi
+          echo "Pinging $HEALTH_URL ..."
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$HEALTH_URL" || echo "000")
+          echo "Response status: $status"
+          if [ "$status" = "000" ]; then
+            echo "::warning::Health check request failed to reach $HEALTH_URL (network error or timeout)."
+          elif [ "$status" -ge 500 ]; then
+            echo "::warning::Health endpoint returned $status (service may be degraded)."
+          fi
+          # Don't fail the workflow on a non-2xx response — the goal is just
+          # to wake/keep the service warm, not to gate a deploy.
+          exit 0
