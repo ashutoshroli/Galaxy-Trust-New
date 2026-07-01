@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { authenticate, canAdd, canEdit, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest, notFound } from '../utils/http.js';
 import { notifyAll } from '../utils/notify.js';
+import { renderTemplate } from '../utils/templates.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -98,12 +99,12 @@ router.post('/', canAdd, async (req, res) => {
     }
 
     await client.query('COMMIT');
-    notifyAll(req.user.id, {
-      type: 'meeting',
-      title: '📡 New Meeting',
-      body: `${subject || 'Meeting'} · ${meeting_date}`,
-      link: '/meetings',
-    }).catch(() => {});
+    renderTemplate('meeting_created', { subject: subject || 'Meeting', date: meeting_date })
+      .then((rendered) => {
+        if (!rendered) return; // template disabled by the superadmin
+        return notifyAll(req.user.id, { type: 'meeting', title: rendered.title, body: rendered.body, link: '/meetings' });
+      })
+      .catch(() => {});
     res.status(201).json(meeting);
   } catch (err) {
     await client.query('ROLLBACK');

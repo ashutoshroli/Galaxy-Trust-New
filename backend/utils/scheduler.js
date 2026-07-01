@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { logger } from './logger.js';
 import { notifyMembers } from './notify.js';
 import { sendReminderText } from './sms.js';
+import { renderTemplate } from './templates.js';
 
 // Automatic daily reminders — no admin action needed:
 //   1. Pending installments: nudges members with an outstanding balance,
@@ -37,17 +38,21 @@ async function remindPendingInstallments() {
     if (!dueForReminder) continue;
 
     const amount = Number(r.balance).toLocaleString('en-IN');
-    const body = `Aapki \u20b9${amount} ki kisht abhi baki hai. Kripya jald bhugtan karein. — Galaxy Trust`;
+    const rendered = await renderTemplate('installment_reminder', { name: r.name, amount }).catch((e) => {
+      logger.error('installment_reminder template render failed', { message: e.message });
+      return null;
+    });
+    if (!rendered) continue; // template disabled by the superadmin
 
     await notifyMembers([r.member_id], {
       type: 'installment_reminder',
-      title: '\u23f3 Pending Installment',
-      body: `Aapki \u20b9${amount} ki kisht abhi baki hai.`,
+      title: rendered.title,
+      body: rendered.body,
       link: '/installments',
     }).catch((e) => logger.error('scheduled reminder notify failed', { message: e.message }));
 
     if (r.phone) {
-      await sendReminderText(r.phone, body).catch((e) =>
+      await sendReminderText(r.phone, rendered.body).catch((e) =>
         logger.error('scheduled reminder text failed', { memberId: r.member_id, message: e.message })
       );
     }
@@ -73,16 +78,22 @@ async function remindBirthdaysToday() {
 
   let wished = 0;
   for (const m of result.rows) {
+    const rendered = await renderTemplate('birthday', { name: m.name }).catch((e) => {
+      logger.error('birthday template render failed', { message: e.message });
+      return null;
+    });
+    if (!rendered) continue; // template disabled by the superadmin
+
     await notifyMembers([m.id], {
       type: 'birthday',
-      title: '\ud83c\udf82 Happy Birthday!',
-      body: `Wishing you a wonderful birthday, ${m.name}! — Galaxy Trust`,
+      title: rendered.title,
+      body: rendered.body,
       link: '/members',
     }).catch((e) => logger.error('birthday notify failed', { message: e.message }));
 
     if (m.phone) {
-      await sendReminderText(m.phone, `\ud83c\udf82 Happy Birthday, ${m.name}! Wishing you a wonderful year ahead. — Galaxy Trust`).catch(
-        (e) => logger.error('birthday text failed', { memberId: m.id, message: e.message })
+      await sendReminderText(m.phone, rendered.body).catch((e) =>
+        logger.error('birthday text failed', { memberId: m.id, message: e.message })
       );
     }
     wished++;

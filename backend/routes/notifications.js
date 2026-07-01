@@ -4,6 +4,7 @@ import { authenticate, onlySuperAdmin } from '../middleware/auth.js';
 import { asyncHandler, badRequest } from '../utils/http.js';
 import { vapidPublicKey, saveSubscription, notifyMembers } from '../utils/notify.js';
 import { runDailyReminders } from '../utils/scheduler.js';
+import { renderTemplate } from '../utils/templates.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -67,17 +68,21 @@ router.post(
   onlySuperAdmin,
   asyncHandler(async (req, res) => {
     const rows = await pool.query(`
-      SELECT i.member_id, SUM(i.total_amount - i.paid_amount) AS balance
+      SELECT i.member_id, m.name, SUM(i.total_amount - i.paid_amount) AS balance
       FROM installments i
+      JOIN members m ON m.id = i.member_id
       WHERE (i.total_amount - i.paid_amount) > 0
-      GROUP BY i.member_id
+      GROUP BY i.member_id, m.name
     `);
     let reminded = 0;
     for (const r of rows.rows) {
+      const amount = Number(r.balance).toLocaleString('en-IN');
+      const rendered = await renderTemplate('installment_reminder', { name: r.name, amount });
+      if (!rendered) continue; // template disabled by the superadmin
       await notifyMembers([r.member_id], {
         type: 'installment_reminder',
-        title: '⏳ Pending Installment',
-        body: `Aapki ₹${Number(r.balance).toLocaleString('en-IN')} ki kisht abhi baki hai.`,
+        title: rendered.title,
+        body: rendered.body,
         link: '/installments',
       });
       reminded++;

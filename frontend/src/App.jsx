@@ -25,6 +25,7 @@ const Announcements = lazy(() => import('./pages/Announcements.jsx'));
 const Activity = lazy(() => import('./pages/Activity.jsx'));
 const Search = lazy(() => import('./pages/Search.jsx'));
 const SidebarPermissions = lazy(() => import('./pages/SidebarPermissions.jsx'));
+const Templates = lazy(() => import('./pages/Templates.jsx'));
 
 function PageLoader() {
   return (
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/activity" element={<Protected><Activity /></Protected>} />
             <Route path="/search" element={<Protected><Search /></Protected>} />
             <Route path="/sidebar-permissions" element={<Protected><SidebarPermissions /></Protected>} />
+            <Route path="/templates" element={<Protected><Templates /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

@@ -21,6 +21,7 @@ import searchRoutes from './routes/search.js';
 import backupRoutes from './routes/backup.js';
 import navPermissionsRoutes from './routes/navPermissions.js';
 import notificationsRoutes from './routes/notifications.js';
+import templatesRoutes from './routes/templates.js';
 import { pool } from './db.js';
 import { logger } from './utils/logger.js';
 import { activityLogger } from './utils/activityLog.js';
@@ -135,6 +136,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/nav-permissions', navPermissionsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/templates', templatesRoutes);
 
 app.get('/api/health', async (req, res) => {
   try {

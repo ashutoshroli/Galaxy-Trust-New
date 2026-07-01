@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { to: '/activity', id: 'activity', key: 'nav.activity', icon: '🛡️', superadminOnly: true },
   { to: '/permissions', id: 'permissions', key: 'nav.permissions', icon: '🔐', superadminOnly: true },
   { to: '/sidebar-permissions', id: 'sidebarPerms', key: 'nav.sidebarPerms', icon: '🧭', superadminOnly: true },
+  { to: '/templates', id: 'templates', key: 'nav.templates', icon: '📨', superadminOnly: true },
   { to: '/profile', id: 'profile', key: 'nav.profile', icon: '⚙️' },
 ];
 

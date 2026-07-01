@@ -7,6 +7,7 @@ import { authenticate } from '../middleware/auth.js';
 import { sendMail } from '../utils/mailer.js';
 import { logger } from '../utils/logger.js';
 import { createSession, listSessions, revokeSession, revokeAllSessions } from '../utils/sessions.js';
+import { renderTemplate } from '../utils/templates.js';
 
 const router = express.Router();
 
@@ -250,28 +251,26 @@ router.post('/forgot-password', async (req, res) => {
     );
 
     const link = `${appUrl()}/reset-password?token=${token}`;
-    const subject = 'Galaxy Trust — Reset your password';
-    const text =
-      `Hello ${acc.username},\n\n` +
-      `We received a request to reset your Galaxy Trust password. ` +
-      `Open the link below to set a new password (valid for ${RESET_TOKEN_TTL_MIN} minutes):\n\n` +
-      `${link}\n\n` +
-      `If you didn't request this, you can safely ignore this email — your password won't change.`;
-    const html =
-      `<p>Hello <b>${acc.username}</b>,</p>` +
-      `<p>We received a request to reset your Galaxy Trust password. ` +
-      `Click the button below to set a new password. This link is valid for ${RESET_TOKEN_TTL_MIN} minutes.</p>` +
-      `<p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#6d5efc;color:#fff;border-radius:8px;text-decoration:none">Reset Password</a></p>` +
-      `<p>Or paste this link into your browser:<br><a href="${link}">${link}</a></p>` +
-      `<p style="color:#888;font-size:13px">If you didn't request this, you can safely ignore this email — your password won't change.</p>`;
+    const rendered = await renderTemplate('password_reset_email', {
+      username: acc.username,
+      link,
+      minutes: RESET_TOKEN_TTL_MIN,
+    });
 
     await logActivity(acc.id, acc.username, 'password_reset_requested', req);
 
     // Respond immediately — don't make the user wait on email delivery.
     res.json({ message: `A reset link has been sent to ${masked}. Please check your inbox.`, maskedEmail: masked });
 
+    if (!rendered) {
+      // Superadmin disabled this template — still log the link so an admin
+      // can manually help the user if needed.
+      logger.warn('Password reset email template disabled', { userId: acc.id, link });
+      return;
+    }
+
     // Deliver the email in the background; log the link if it can't be sent.
-    sendMail({ to: toEmail, subject, text, html })
+    sendMail({ to: toEmail, subject: rendered.emailSubject, html: rendered.emailHtml, text: rendered.emailHtml })
       .then((sent) => {
         if (!sent) logger.warn('Password reset link (no email provider)', { userId: acc.id, link });
       })

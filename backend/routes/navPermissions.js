@@ -14,7 +14,7 @@ export const CONFIGURABLE_PAGES = [
 // Always visible to every logged-in user.
 const ALWAYS = ['dashboard', 'profile'];
 // Pages only the superadmin ever sees (not configurable).
-const SUPERADMIN_PAGES = ['cashier', 'activity', 'permissions', 'sidebarPerms'];
+const SUPERADMIN_PAGES = ['cashier', 'activity', 'permissions', 'sidebarPerms', 'templates'];
 // Roles that can be configured (superadmin is always full-access).
 export const CONFIG_ROLES = ['admin', 'manager', 'president', 'secretary', 'treasurer', 'trustee', 'viewer'];
 

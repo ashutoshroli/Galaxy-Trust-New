@@ -299,6 +299,21 @@ CREATE TABLE IF NOT EXISTS meeting_agenda_votes (
 );
 CREATE INDEX IF NOT EXISTS idx_agenda_votes_item ON meeting_agenda_votes(agenda_item_id);
 
+-- Customizable notification/message templates (superadmin-editable). A
+-- missing row for a key means "use the built-in default" (see
+-- backend/utils/templates.js) -- this table only stores overrides, so
+-- shipping a new template never requires a migration to "seed" it.
+CREATE TABLE IF NOT EXISTS notification_templates (
+  template_key VARCHAR(60) PRIMARY KEY,   -- e.g. 'installment_reminder', 'birthday'
+  title TEXT,                              -- in-app/push notification title (NULL = use default)
+  body TEXT,                               -- in-app/push + SMS/WhatsApp body (NULL = use default)
+  email_subject TEXT,                      -- for email-based templates only
+  email_html TEXT,                         -- for email-based templates only
+  enabled BOOLEAN NOT NULL DEFAULT true,    -- turn this notification off entirely
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Helpful indexes for the most common lookups / joins
 CREATE INDEX IF NOT EXISTS idx_contributions_member ON contributions(member_id);
 CREATE INDEX IF NOT EXISTS idx_contributions_installment ON contributions(installment_id);
